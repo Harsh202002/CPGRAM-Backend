@@ -55,6 +55,39 @@ const grievanceSchema = new mongoose.Schema({
     resolution: {
         type: String,
     },
+    assignedTo: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+    },
+    assignedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+    },
+    escalatedLeadOfficer: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+    },
+    escalatedToLeadOfficer: {
+        type:Boolean,
+        default: false
+    },
+    activityLog: [{
+        message: String,
+        updatedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+        status: String,
+        timestamp: { type: Date, default: Date.now }
+    }],
+    feedbackGiven: {
+        type: Boolean,
+        default: false
+    },
+    isClosed: {
+        type: Boolean,
+        default: false
+    }
 
 },{timestamps: true});
 

@@ -6,7 +6,7 @@ exports.getWelcomeEmailTemplate = (name) => {
     </div>
     <div style="background:white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
     <p style="font-size: 16px; color: #212529; line-height: 1.5;">
-    Thank you for registering on the <strong>Centralized public Grivience Readress and Moitoring system (CPGRAMS)</strong> CPGRAMS. We are excited to have you on board! Our platform is designed to help you easily manage and resolve your grievances.
+    Thank you for registering on the <strong>Centralized public Grivience Readress and Moitoring system (CPGRAMS)</strong>We are excited to have you on board! Our platform is designed to help you easily manage and resolve your grievances.
     </p>
     <p style="font-size: 16px; color: #212529; line-height: 1.5;">
     You can now lodge griviences, track their progress, and receive updates from departments seamlessly.

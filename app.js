@@ -27,6 +27,7 @@ if (process.env.NODE_ENV !=='production') {
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/grievances', require('./routes/grievanceRoutes'));
 app.use('/api/userProfile', require('./routes/userProfileRoutes'));
+app.use('/api/officer', require('./routes/officerRoutes'));
 
 
 

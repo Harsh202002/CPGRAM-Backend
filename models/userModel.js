@@ -21,9 +21,15 @@ const userSchema = new mongoose.Schema({
     },
     role:{
         type: String,
-        enum: ['user','officer','admin'],
+        enum: ['user','officer','lead_officer','admin'],
         default: 'user',
         required: true,
+    },
+    department: {
+        type: String,
+        // required: function() {
+        //     return this.role === 'officer' || this.role === 'lead_officer';
+        // },
     },
     address: {
         type: String,
