@@ -1,26 +1,48 @@
 const Grievance = require('../models/grievanceModel');
 const generateUniqueID = require('../utils/generateUniqueID');
 const cloudinary = require('../config/cloudinary');
+const fs = require("fs");
+const path = require("path");
 
 exports.createGrievance = async (req, res, next) => {
-    try {
-      const { ministryName, grievanceDescription, departmentName, publicAuthority, title, locationOfIssue, dateOfIncident, category } = req.body;
-        const files  = req.files || [];
-        const attachments = [];
-   for (const file of files) {
-      const result = await cloudinary.uploader.upload_stream({
-        folder: 'grievances_attachments',
-        resource_type: 'auto'
-        }, (error, result) => {
-          if (error) {
-            console.error('Cloudinary upload error:', error);
-            throw new Error('Failed to upload attachment');
-          }
-          attachments.push({
-            public_id: result.public_id,
-            url: result.secure_url,
-          });
-        }).end(file.buffer);
+  try {
+    const {
+      ministryName,
+      grievanceDescription,
+      departmentName,
+      publicAuthority,
+      title,
+      locationOfIssue,
+      dateOfIncident,
+      category,
+    } = req.body;
+
+    const files = req.files || [];
+    const attachments = [];
+
+    for (const file of files) {
+      const localFilePath = file.path;
+
+      try {
+        const result = await cloudinary.uploader.upload(localFilePath, {
+          folder: "grievances_attachments",
+          resource_type: "auto",
+        });
+
+        attachments.push({
+          public_id: result.public_id,
+          url: result.secure_url,
+        });
+
+        // delete file from local after upload
+        fs.unlinkSync(localFilePath);
+      } catch (uploadError) {
+        console.error("Cloudinary upload error:", uploadError);
+        fs.unlinkSync(localFilePath);
+        return res
+          .status(500)
+          .json({ success: false, message: "Failed to upload attachment" });
+      }
     }
 
     const grievance = await Grievance.create({
@@ -35,23 +57,22 @@ exports.createGrievance = async (req, res, next) => {
       category,
       attachments,
       uniqueID: generateUniqueID(),
-    
     });
+
     res.status(201).json({
-      message: 'Grievance created successfully',
-      grievance
+      message: "Grievance created successfully",
+      grievance,
     });
   } catch (error) {
-    
-    console.error('Error creating grievance:', error);
+    console.error("Error creating grievance:", error);
     if (error.code === 11000) {
-      return res.status(400).json({ message: 'Grievance with this unique ID already exists' });
+      return res
+        .status(400)
+        .json({ message: "Grievance with this unique ID already exists" });
     }
     next(error);
   }
-
-
-}
+};
 
 exports.getGrievancesByUniqueId = async (req, res, next) => {
   try {
