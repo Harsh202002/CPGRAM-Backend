@@ -1,19 +1,19 @@
-const express = require('express');
+const express = require("express");
 const {
   createUserProfile,
   getAllProfiles,
   getProfileById,
   updateUserProfile,
   deleteUserProfile,
-} = require('../controllers/userProfileController');
-const upload = require('../middlewares/uploadMiddleware');
+} = require("../controllers/userProfileController");
+const { profileUploadFields } = require("../middlewares/uploadMiddleware");
 
 const router = express.Router();
 
-router.post('/', upload.single('profileImage'), createUserProfile);
-router.get('/', getAllProfiles);
-router.get('/:id', getProfileById);
-router.put('/:id', updateUserProfile);
-router.delete('/:id', deleteUserProfile);
+router.post("/", profileUploadFields, createUserProfile);
+router.get("/", getAllProfiles);
+router.get("/:id", getProfileById);
+router.put('/:id', profileUploadFields, updateUserProfile);
+router.delete("/:id", deleteUserProfile);
 
 module.exports = router;

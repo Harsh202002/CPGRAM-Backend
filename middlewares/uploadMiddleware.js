@@ -1,7 +1,4 @@
 const multer = require('multer');
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
-const cloudinary = require('../config/cloudinary');
-
 const path = require('path');
 const fs = require('fs');
 
@@ -9,16 +6,23 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const tempDir = path.join(process.cwd(), "temp");
     fs.mkdirSync(tempDir, { recursive: true });
-    console.log('Saving file to:', tempDir);  
     cb(null, tempDir);
-  },    
+  },
   filename: (req, file, cb) => {
     const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9.]/g, "_");
-    console.log('Generated file name:', sanitizedName);  
     cb(null, `${Date.now()}-${sanitizedName}`);
   },
 });
 
-const upload = multer({ storage: storage })
+const upload = multer({ storage });
 
-module.exports = upload;
+const profileUploadFields = upload.fields([
+  { name: "profileImage", maxCount: 1 },
+  { name: "aadhaarCardUrl", maxCount: 1 },
+  { name: "voterIdCardUrl", maxCount: 1 },
+  { name: "panCardUrl", maxCount: 1 },
+  { name: "utilityBillUrl", maxCount: 1 },
+  { name: "bankStatementUrl", maxCount: 1 },
+]);
+
+module.exports = { upload, profileUploadFields };
