@@ -1,7 +1,7 @@
 const express = require('express');
 const { createGrievance, getUserGrievances, getGrievancesByUniqueId, updateGrievanceStatus, updateGrievance } = require('../controllers/grievanceController');
 const { protect } = require('../middlewares/authMiddleware');
-const upload = require('../middlewares/uploadMiddleware');
+const { upload } = require('../middlewares/uploadMiddleware');
 // const {body} = require('express-validator');
 
 const router = express.Router();

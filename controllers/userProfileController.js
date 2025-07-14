@@ -7,30 +7,40 @@ const cloudinary = require("../config/cloudinary");
 const createUserProfile = async (req, res) => {
   try {
     const { userId, ...profileData } = req.body;
+    console.log("FILES RECEIVED:", req.files);
+
 
     const userExists = await User.findById(userId);
     if (!userExists) return res.status(404).json({ message: "User not found" });
 
     const existingProfile = await UserProfile.findOne({ userId });
     if (existingProfile) {
-      return res
-        .status(400)
-        .json({ message: "Profile already exists for this user" });
+      return res.status(400).json({ message: "Profile already exists for this user" });
     }
 
-    if (!req.file) {
-      return res.status(400).json({ message: "Profile image is required" });
+    const files = req.files || {};
+    const uploads = {};
+
+    for (const key in files) {
+      const file = files[key][0];
+      const result = await cloudinary.uploader.upload(file.path, {
+        folder: "user-profiles",
+      });
+      fs.unlinkSync(file.path);
+      uploads[key] = result.secure_url;
     }
 
-    const localImagePath = req.file.path;
-    const resultCloud = await cloudinary.uploader.upload(localImagePath, {
-      folder: "user-profiles",
-    });
+    const fullProfileData = {
+      ...profileData,
+      profileImage: uploads.profileImage,
+      aadhaarCardUrl: uploads.aadhaarCardUrl,
+      voterIdCardUrl: uploads.voterIdCardUrl,
+      panCardUrl: uploads.panCardUrl,
+      utilityBillUrl: uploads.utilityBillUrl,
+      bankStatementUrl: uploads.bankStatementUrl,
+    };
 
-    fs.unlinkSync(localImagePath);
-    profileData.profileImage = resultCloud.secure_url;
-
-    const profile = new UserProfile({ userId, ...profileData });
+    const profile = new UserProfile({ userId, ...fullProfileData });
     await profile.save();
 
     res.status(201).json({ message: "User profile created", profile });
@@ -40,11 +50,15 @@ const createUserProfile = async (req, res) => {
   }
 };
 
+
 // Get All Profiles
 const getAllProfiles = async (req, res) => {
   try {
     const profiles = await UserProfile.find()
-      .populate("userId", "fullName email phoneNumber role")
+      .populate(
+        "userId",
+        "fullName email phoneNumber role gender address city state district pincode"
+      )
       .select("-__v");
 
     if (!profiles || profiles.length === 0) {
@@ -80,18 +94,20 @@ const getProfileById = async (req, res) => {
 };
 
 // Update Profile
+// Update Profile
 const updateUserProfile = async (req, res) => {
   try {
     const profileId = req.params.id;
 
-    if (req.file) {
-      const localImagePath = req.file.path;
+    // ✅ handle profile image upload
+    if (req.files?.profileImage?.[0]) {
+      const localImagePath = req.files.profileImage[0].path;
 
       const resultCloud = await cloudinary.uploader.upload(localImagePath, {
         folder: "user-profiles",
       });
 
-      fs.unlinkSync(localImagePath);
+      fs.unlinkSync(localImagePath); // delete local file
       req.body.profileImage = resultCloud.secure_url;
     }
 
@@ -105,14 +121,13 @@ const updateUserProfile = async (req, res) => {
       return res.status(404).json({ message: "Profile not found" });
     }
 
-    res
-      .status(200)
-      .json({ message: "Profile updated", profile: updatedProfile });
+    res.status(200).json({ message: "Profile updated", profile: updatedProfile });
   } catch (err) {
     console.error("Error updating profile:", err);
     res.status(400).json({ error: err.message });
   }
 };
+
 
 // Delete Profile
 const deleteUserProfile = async (req, res) => {
