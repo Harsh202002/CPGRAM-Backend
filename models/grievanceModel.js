@@ -63,13 +63,14 @@ const grievanceSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
     },
-    escalatedLeadOfficer: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-    },
     escalatedToLeadOfficer: {
         type:Boolean,
         default: false
+    },
+    escalatedLeadOfficer:{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        default: null
     },
     activityLog: [{
         message: String,
@@ -77,6 +78,7 @@ const grievanceSchema = new mongoose.Schema({
             type: mongoose.Schema.Types.ObjectId,
             ref: 'User'
         },
+        comment: String,
         status: String,
         timestamp: { type: Date, default: Date.now }
     }],
@@ -92,3 +94,28 @@ const grievanceSchema = new mongoose.Schema({
 },{timestamps: true});
 
 module.exports = mongoose.model('Grievance', grievanceSchema);
+
+
+//  activityLog: [{
+//         message: String,
+//         updatedBy: {
+//             type: mongoose.Schema.Types.ObjectId,
+//             ref: 'User'
+//         },
+//         status: String,
+//         timestamp: { type: Date, default: Date.now }
+//     }],
+
+
+// activityLog: [{
+//         message: String,
+//         updatedBy: {id:{
+//             type: mongoose.Schema.Types.ObjectId,
+//             ref: 'User'
+//         },
+//         name:String,
+//         },
+//         comment: String,
+//         status: String,
+//         timestamp: { type: Date, default: Date.now }
+//     }],

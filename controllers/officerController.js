@@ -72,28 +72,47 @@ exports.assignGrievance = async (req, res, next) => {
 // }
 
 exports.updateStatus = async (req, res, next) => {
-    try {
-        const { grievanceId } = req.params;
-        const { status, comment } = req.body;
-        const grievance = await Grievance.findById(grievanceId);
-        grievance.status = status;
-        grievance.activityLog.push({
-            message: `Status updated to ${status}`,
-            updatedBy: req.user._id,
-            status: status
-        });
-        if (status === 'Resolved')
-            grievance.feedbackGiven = true;                     
-
-        await grievance.save();
-        res.json({
-            message: `Grievance status marked as ${status}`,
-            grievance
-        });
-    } catch (error) {
-        next(error);
+  try {
+    const { grievanceId } = req.params;
+    const { status, comment } = req.body;
+ 
+    const grievance = await Grievance.findById(grievanceId);
+    if (!grievance) {
+      return res.status(404).json({ message: 'Grievance not found' });
     }
-}
+ 
+    grievance.status = status;
+ 
+    grievance.activityLog.push({
+      message: `Status updated to ${status}`,
+      updatedBy: req.user._id, // ✅ Just the ObjectId
+      comment: comment || '',
+      status: status
+    });
+ 
+    if (status === 'Resolved') {
+      grievance.feedbackGiven = true;
+    }
+ 
+    await grievance.save();
+ 
+    res.json({
+      message: `Grievance status marked as ${status}`,
+      grievance
+    });
+ 
+  } catch (error) {
+    console.log(error);
+    next(error);
+  }
+};
+
+//   grievance.activityLog.push({
+//             message: `Status updated to ${status}`,
+//             updatedBy: req.user._id,
+//             comment: comment || '',
+//             status: status
+//         });
 
 exports.escalateGrievance = async (req, res, next) => {
     try {
@@ -166,6 +185,68 @@ exports.addProgressMessage = async (req, res, next) => {
         grievance.activityLog.push({
             message,
             updatedBy: req.user._id,
+            status: "In Progress"
+        });
+
+        await grievance.save();
+        res.status(200).json({
+            message: 'Progress update added',
+            grievance
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
+exports.escalateGrievance = async (req, res, next) => {
+    try {
+        const { grievanceId } = req.params;
+        const { officerId } = req.body;
+        const leadOfficer = await User.findById(officerId);
+        if (!leadOfficer || leadOfficer.role !== 'lead_officer') {
+            return res.status(404).json({ message: 'Lead Officer not found or invalid role' });
+        }
+        const grievance = await Grievance.findById(grievanceId);
+        if (!grievance) {
+            return res.status(404).json({ message: 'Grievance not found' });
+        }
+        grievance.escalatedToLeadOfficer = true;
+        grievance.escalatedLeadOfficer = leadOfficerId;
+        grievance.activityLog.push({
+            message: `Grievance escalated to Lead Officer ${leadOfficer.fullName}`,
+            updatedBy: req.user._id,
+            status: 'Escalated'
+        });
+
+        await grievance.save();
+        res.status(200).json({
+            message: 'Grievance escalated to Lead Officer successfully',
+            grievance
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
+exports.addProgressMessage = async (req, res, next) => {
+    try {
+        const { grievanceId } = req.params;
+        const { message } = req.body;
+
+        const grievance = await Grievance.findById(grievanceId);
+        if (!grievance) {
+            return res.status(404).json({ message: 'Grievance not found' });
+        }
+        if (grievance.status !== 'In Progress') {
+            return res.status(400).json({ message: 'Can only send progress messages when status is In Progress' });
+        }
+
+        grievance.activityLog.push({
+            message,
+            updatedBy: {
+                id: req.user._id,
+                name: req.user.fullName,
+            },
             status: "In Progress"
         });
 
