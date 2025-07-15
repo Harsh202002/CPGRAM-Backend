@@ -8,7 +8,7 @@ const grievanceSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['Pending', 'In Progress', 'Resolved', 'Rejected'],
+        enum: ['Pending', 'In Progress', 'Resolved', 'Closed'],
         default: 'Pending'
     },
     uniqueID: {

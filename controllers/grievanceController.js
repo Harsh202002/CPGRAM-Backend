@@ -1,5 +1,6 @@
 const Grievance = require('../models/grievanceModel');
 const User = require('../models/userModel');
+const ProgressUpdate = require('../models/progressUpdateModel');
 const sendEmail = require('../utils/sendEmail');
 const generateUniqueID = require('../utils/generateUniqueID');
 const cloudinary = require('../config/cloudinary');
@@ -217,4 +218,94 @@ function checkRemainderEligibility(createdAt){
     const createdDate = new Date(createdAt);
     const diffDays = Math.floor((now-createdDate)/(1000 * 60 * 60 * 24));
     return diffDays >=21;
+}
+
+exports.updateGrievanceStatus = async(req,res,next) =>{
+  try {
+    const {status,comment} = req.body;
+    const grievanceId = req.params._id;
+    const userId = req.user._id;
+
+    const grievance = await Grievance.findById(grievanceId).populate('user','fullName email');
+    if(!grievance){
+      return
+      res.status(404).json({message:'Grievance not found'})
+    }
+    const isAssignedOfficer = grievance.assignedTo?.toString() === userId.toString();
+    const isLeadOfficer = grievance.escalatedLeadOfficer?.toString() === userId.toString();
+
+    if(!isAssignedOfficer && !isLeadOfficer){
+      return
+      res.status(403).json({message:"only assigned officer and lead officer can update the status"})
+    }
+
+
+    const validStatuses = ['pending','In Progress', 'Resolved', 'closed'];
+    if(!validStatuses.includes(status)){
+      return
+      res.status(400).json({message:'invalid status value'})
+    }
+
+    if(status === 'Closed' && !grievance.feedbackGiven){
+      return
+      res.status(400).json({message:'Grievance cannot be either closed unless user feedback is submitted'})
+    }
+
+    grievance.activityLog.push({
+      message: `${status} status updated`,
+      comment,
+      updatedBy:userId,
+      status
+    });
+    grievance.status = status;
+    await grievance.save();
+    res.status(200).json({
+      message:`Grievance status updated to status ${status}`,
+      grievance
+    })
+  } catch (error) {
+    next(error);
+  }
+}
+
+exports.addProgressUpdate =async(res,req,next)=>{
+
+  try {
+    const grievanceId = req.params.id;
+    const {message} = req.body;
+    const userId = req.user._id;
+    if(!message || message.trim() === ''){
+      return
+      res.status(400).json({message:"Message is Required"})
+    }
+    const grievance = await Grievance.findById(grievanceId);
+    if(!grievance){
+      return
+      res.status(404).json({message:'Grievance not found'})
+    }
+    const isAssignedOfficer = grievance.assignedTo?.toString() === userId.toString();
+    const isLeadOfficer = grievance.escalatedLeadOfficer?.toString() === userId.toString();
+
+    if(!isAssignedOfficer && !isLeadOfficer){
+      return
+      res.status(403).json({message:"only assigned officer and lead officer can update the progress update"})
+    }
+
+    const ProgressUpdate = await ProgressUpdate.create({
+      grievance: grievanceId,
+      updatedBy:userId,
+      message
+    })
+     res.status(201).json({
+      message:'Progress update added successfully',
+      ProgressUpdate
+     })
+
+
+  } catch (error) {
+    next(error)
+  }
+  
+
+
 }
