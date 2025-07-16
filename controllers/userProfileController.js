@@ -1,4 +1,5 @@
 const User = require("../models/userModel");
+const mongoose = require("mongoose");
 const UserProfile = require("../models/UserProfile");
 const fs = require("fs");
 const cloudinary = require("../config/cloudinary");
@@ -93,7 +94,7 @@ const getProfileById = async (req, res) => {
   }
 };
 
-// Update Profile
+
 // Update Profile
 const updateUserProfile = async (req, res) => {
   try {
@@ -145,10 +146,35 @@ const deleteUserProfile = async (req, res) => {
   }
 };
 
+const getProfileByUserId = async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) return res.status(400).json({ message: "Missing userId" });
+
+    // Validate and convert userId to ObjectId
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid userId format" });
+    }
+
+    const profile = await UserProfile.findOne({
+      userId: new mongoose.Types.ObjectId(userId),
+    }).populate("userId");
+
+    if (!profile) return res.status(404).json({ message: "Profile not found" });
+
+    res.status(200).json(profile);
+  } catch (err) {
+    console.error("Error fetching profile by userId:", err);
+    res.status(500).json({ message: "Server error while fetching profile" });
+  }
+};
+
+
 module.exports = {
   createUserProfile,
   getAllProfiles,
   getProfileById,
   updateUserProfile,
   deleteUserProfile,
+  getProfileByUserId,
 };
