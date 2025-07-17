@@ -16,6 +16,51 @@ const grievanceSchema = new mongoose.Schema({
         required: true,
         unique: true
     },
+
+       fullName: {
+        type: String,
+        required: true,
+    },
+    gender: {
+        type: String,  
+    },
+        
+    email: {
+        type: String,
+        required: true,
+        unique: true,
+    },
+    phoneNumber:{
+        type: String,
+       
+    },
+    dateOfBirth:{
+        type:Date
+    },
+    addressLine1: {
+        type: String,
+        
+    },
+     addressLine2: {
+        type: String,
+        
+    },
+    city: {
+        type: String,
+        
+    },
+    state:{
+        type: String,
+        
+    },
+    district: {
+        type: String,
+       
+    },
+    pincode: {  
+        type: String,
+        
+    },
     ministryName: {
         type: String,
         required: true
@@ -80,6 +125,18 @@ const grievanceSchema = new mongoose.Schema({
         },
         comment: String,
         status: String,
+        timestamp: { type: Date, default: Date.now }
+    }],
+    assignedOfficer:{
+        type:mongoose.Schema.Types.ObjectId,
+        ref:'user'
+    },
+    progressUpdates:[{
+        message: String,
+        updatedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
         timestamp: { type: Date, default: Date.now }
     }],
     feedbackGiven: {
