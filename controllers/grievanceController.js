@@ -101,10 +101,11 @@ exports.createGrievance = async (req, res, next) => {
 
 exports.getGrievancesByUniqueId = async (req, res, next) => {
   try {
-    const grievance = await Grievance.findOne({
-      uniqueID: req.params.id,
-      user: req.user._id,
-    }).populate("user", "fullName email");
+    const {uniqueID} = req.params;
+    const grievance = await Grievance.findOne(
+      {uniqueID}
+    )
+    //.populate("user", "fullName email");
     if (!grievance) {
       return res.status(404).json({ message: "Grievance not found" });
     }

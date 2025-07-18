@@ -4,7 +4,7 @@ const User = require('../models/userModel');
 exports.getGrievanceByToken = async (req, res,next   ) => {
     try {
         const {uniqueID} = req.params;
-        const grievance = await Grievance.findOne({ grievanceID: uniqueID }).populate('user', '-username -password -role -department -address -city -state -district -pincode')
+        const grievance = await Grievance.findOne(uniqueID).populate('user', '-username -password -role -department -address -city -state -district -pincode')
         .populate('assignedTo', 'name role')
         .populate('activityLog.updatedBy', 'name role');
         if (!grievance) {

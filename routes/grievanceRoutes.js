@@ -8,7 +8,7 @@ const router = express.Router();
 
 router.post('/create', protect, upload.array('attachments', 5), createGrievance);
 router.get('/my-grievances', protect, getUserGrievances);
-router.get('/grievance/:id', protect, getGrievancesByUniqueId);
+router.get('/grievance/:uniqueID', protect, getGrievancesByUniqueId);
 router.put('/status/:grievanceId', protect, updateGrievanceStatus);
 router.put('/update/:grievanceId', protect, upload.array('attachments', 5), updateGrievance);
 router.post('/progress/:grievanceId',protect,addProgressUpdate)
