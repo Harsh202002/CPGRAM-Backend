@@ -225,7 +225,7 @@ exports.trackGrievance = async (req, res, next) => {
       grievanceDetails: {
         title: grievance.title,
         category: grievance.category,
-        description: grievance.description,
+        description: grievance.grievanceDescription,
         ministry: grievance.ministryName,
         department: grievance.departmentName,
         publicAuthority: grievance.publicAuthority,
