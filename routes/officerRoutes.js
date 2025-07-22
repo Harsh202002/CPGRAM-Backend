@@ -7,6 +7,9 @@ const router = express.Router();
 
 
 router.post('/assign', protect, allowRoles('lead_officer'), officerController.assignGrievance);
+router.get('/assigned-grv', protect, allowRoles('lead_officer','officer'), officerController.getAllAssignedGrievances);
+router.get('/all-officers', protect, allowRoles('lead_officer','officer'), officerController.getAllOfficer);
+
 
 
 

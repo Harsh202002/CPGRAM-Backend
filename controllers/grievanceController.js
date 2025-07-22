@@ -676,7 +676,7 @@ exports.getGrievancesAssignedToOfficer = async (req, res) => {
 exports.getAllGrievances = async(req,res, next) =>{
   try {
     const grievances = await Grievance.find()
-    // .populate('createdBy', 'fullName email role')
+    .populate('user', 'fullName email role')
     .populate('assignedOfficer', 'fullName email role' )
     .populate('progressUpdates.updatedBy','fullName email role')
 
@@ -685,3 +685,5 @@ exports.getAllGrievances = async(req,res, next) =>{
     next(error)
   }
 }
+
+

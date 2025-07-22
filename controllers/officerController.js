@@ -34,4 +34,39 @@ exports.assignGrievance = async (req, res, next) => {
 }
 
 
+exports.getAllAssignedGrievances = async(req,res,next) => {
+    try {
+        const userId = req.user._id
+        const grievances = await Grievance.find({
+            $or:[
+                {assignedTo:userId},
+            ]
+        })
+        .populate('user','fullName email role')
+        .populate('assignedTo', 'name email role')
+        .populate('progressUpdates.updatedBy','fullName email role')
+        res.status(200).json({grievances});
+    } catch (error) {
+        next(error)
+    }
+}
+
+
+exports.getAllOfficer = async(req,res,next) =>{
+    try {
+        const officers = await User.find({
+            role:'officer'
+        }).select('-password');
+
+        res.status(200).json({
+            message:'officers fetched successfully',
+            officers
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+
+
 
