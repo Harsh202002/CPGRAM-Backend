@@ -129,7 +129,7 @@ const grievanceSchema = new mongoose.Schema({
     }],
     assignedOfficer:{
         type:mongoose.Schema.Types.ObjectId,
-        ref:'user'
+        ref:'User'
     },
     progressUpdates:[{
         message: String,

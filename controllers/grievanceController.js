@@ -181,15 +181,18 @@ exports.updateGrievance = async (req, res, next) => {
   }
 };
 
+
 exports.trackGrievance = async (req, res, next) => {
   try {
     const { email, uniqueID } = req.body;
+ 
     const user = await User.findOne({ email });
+ 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+ 
     const grievance = await Grievance.findOne({ uniqueID, user: user._id })
-      .populate("assignedTo", "fullName department role")
       .populate({
         path: "progressUpdates",
         populate: {
@@ -197,30 +200,41 @@ exports.trackGrievance = async (req, res, next) => {
           select: "fullName role",
         },
       })
-      .populate("activityLog.updatedBy", "fullName role");
-
+      .populate("activityLog.updatedBy", "fullName role")
+      .populate("assignedOfficer", "fullName department phoneNumber"); // <--- ADD THIS LINE HERE!
+ 
     if (!grievance) {
       return res.status(404).json({ message: "Grievance not found" });
     }
+ 
     // const recentUpdates = grievance.activityLog.filter(log => log.status === 'In Progress' || log.status === 'resolved').slice(-3);
     const canSendRemainder = checkRemainderEligibility(grievance.createdAt);
+ 
+    // This `ProgressUpdate.find` query is separate and its `assignedOfficer`
+    // population only affects the `progressUpdates` variable here,
+    // not `grievance.assignedOfficer`.
+    // If 'assignedOfficer' is part of the ProgressUpdate model,
+    // and you want it in the 'progressUpdates' array in the response,
+    // then this population is correct for that specific array.
     const progressUpdates = await ProgressUpdate.find({
       grievance: grievance._id,
     })
       .populate("updatedBy", "fullName role")
+      .populate("assignedOfficer", "fullName department phoneNumber") // This populates assignedOfficer for progressUpdates
       .sort({ timestamp: -1 });
+ 
     res.json({
       personalInfo: {
-      name: grievance.fullName,
-      email:grievance.email,
-      gender:grievance.gender,
-      DOB:grievance.dateOfBirth,
-      addressLine1:grievance.addressLine1,
-      addressLine2:grievance.addressLine2,
-      city:grievance.city,
-      state:grievance.state,
-      district:grievance.district,
-      postalCode:grievance.postalCode
+        name: grievance.fullName,
+email: grievance.email,
+        gender: grievance.gender,
+        DOB: grievance.dateOfBirth,
+        addressLine1: grievance.addressLine1,
+        addressLine2: grievance.addressLine2,
+city: grievance.city,
+        state: grievance.state,
+        district: grievance.district,
+        postalCode: grievance.postalCode,
       },
       grievanceDetails: {
         title: grievance.title,
@@ -235,12 +249,13 @@ exports.trackGrievance = async (req, res, next) => {
         createdAt: grievance.createdAt,
       },
       currentStatus: grievance.status,
-      assignedOfficer: grievance.assignedTo
-        ? {
-            name: grievance.assignedTo.fullName,
-            department: grievance.assignedTo.department,
-          }
-        : null,
+      // Now, grievance.assignedOfficer should be populated, so you can access its properties.
+      // Added a null check just in case assignedOfficer might not exist for some grievances.
+      assignedTo: grievance.assignedOfficer ? grievance.assignedOfficer.fullName : null,
+      assignedOfficerDepartment: grievance.assignedOfficer ? grievance.assignedOfficer.department : null,
+      assignedOfficerPhone: grievance.assignedOfficer ? grievance.assignedOfficer.phoneNumber : null,
+
+       // Added department as well
       recentUpdates: grievance.activityLog,
       progressUpdates: grievance.progressUpdates.map((p) => ({
         _id: p._id,
@@ -257,9 +272,86 @@ exports.trackGrievance = async (req, res, next) => {
         grievance.status === "Resolved" && !grievance.feedbackGiven,
     });
   } catch (error) {
-    next(error);
+    // It's good practice to log the error for debugging
+    console.error("Error in trackGrievance:", error);
+    next(error); // Pass the error to the error handling middleware
   }
 };
+
+// exports.trackGrievance = async (req, res, next) => {
+//   try {
+//     const { email, uniqueID } = req.body;
+//     const user = await User.findOne({ email });
+//     if (!user) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+//     const grievance = await Grievance.findOne({ uniqueID, user: user._id })
+//       .populate({
+//         path: "progressUpdates",
+//         populate: {
+//           path: "updatedBy",
+//           select: "fullName role",
+//         },
+//       })
+//       .populate("activityLog.updatedBy", "fullName role");
+
+//     if (!grievance) {
+//       return res.status(404).json({ message: "Grievance not found" });
+//     }
+//     // const recentUpdates = grievance.activityLog.filter(log => log.status === 'In Progress' || log.status === 'resolved').slice(-3);
+//     const canSendRemainder = checkRemainderEligibility(grievance.createdAt);
+//     const progressUpdates = await ProgressUpdate.find({
+//       grievance: grievance._id,
+//     })
+//       .populate("updatedBy", "fullName role")
+//       .populate("assignedOfficer", "fullName department")
+//       .sort({ timestamp: -1 });
+//     res.json({
+//       personalInfo: {
+//       name: grievance.fullName,
+//       email:grievance.email,
+//       gender:grievance.gender,
+//       DOB:grievance.dateOfBirth,
+//       addressLine1:grievance.addressLine1,
+//       addressLine2:grievance.addressLine2,
+//       city:grievance.city,
+//       state:grievance.state,
+//       district:grievance.district,
+//       postalCode:grievance.postalCode
+//       },
+//       grievanceDetails: {
+//         title: grievance.title,
+//         category: grievance.category,
+//         description: grievance.grievanceDescription,
+//         ministry: grievance.ministryName,
+//         department: grievance.departmentName,
+//         publicAuthority: grievance.publicAuthority,
+//         location: grievance.locationOfIssue,
+//         dateOfIncident: grievance.dateOfIncident,
+//         attachments: grievance.attachments,
+//         createdAt: grievance.createdAt,
+//       },
+//       currentStatus: grievance.status,
+//       assignedTo: grievance.assignedOfficer.fullName,
+//       recentUpdates: grievance.activityLog,
+//       progressUpdates: grievance.progressUpdates.map((p) => ({
+//         _id: p._id,
+//         message: p.message,
+//         updatedBy: {
+//           name: p.updatedBy?.fullName || "N/A",
+//           role: p.updatedBy?.role || "N/A",
+//         },
+//         timestamp: p.timestamp,
+//       })),
+//       isResolved: grievance.status === "Resolved",
+//       allowReminder: canSendRemainder,
+//       allowFeedback:
+//         grievance.status === "Resolved" && !grievance.feedbackGiven,
+//     });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
 
 function checkRemainderEligibility(createdAt) {
   const now = new Date();
@@ -365,7 +457,7 @@ exports.updateGrievanceStatus = async (req, res, next) => {
       grievance.assignedOfficer = userId;
     }
 
-    await grievance.save({ validateModifiedOnly: true });
+    await grievance.save();
 
     return res.status(200).json({
       message: "Status updated successfully",
@@ -380,12 +472,7 @@ exports.addProgressUpdate = async (req, res) => {
   try {
     const { grievanceId } = req.params;
     const { message } = req.body;
-    const officerId = req.user._id;
-
-    // Validate message
-    if (!message || message.trim() === "") {
-      return res.status(400).json({ error: "Progress message is required" });
-    }
+    const officerId = req.user._id; // assuming you're using JWT & middleware to attach user
 
     // Fetch the grievance
     const grievance = await Grievance.findById(grievanceId);
@@ -393,23 +480,20 @@ exports.addProgressUpdate = async (req, res) => {
       return res.status(404).json({ error: "Grievance not found" });
     }
 
-    // Check if grievance has an assigned officer
-    if (!grievance.assignedOfficer) {
-      return res.status(403).json({ error: "No officer is assigned to this grievance" });
-    }
-
-    // Check if current user is the assigned officer
+    // Check if current user is assigned officer
     if (grievance.assignedOfficer.toString() !== officerId.toString()) {
       return res
         .status(403)
-        .json({ error: "Only the assigned officer can add progress updates" });
+        .json({ error: "Only assigned officer can update progress" });
     }
 
-    // Check if the grievance is currently in "In Progress" status
+    // Check if status is "In Progress"
     if (grievance.status !== "In Progress") {
-      return res.status(400).json({
-        error: 'Progress updates are allowed only when status is "In Progress"',
-      });
+      return res
+        .status(400)
+        .json({
+          error: 'Progress updates allowed only when status is "In Progress"',
+        });
     }
 
     // Push the new progress update
@@ -420,16 +504,15 @@ exports.addProgressUpdate = async (req, res) => {
 
     await grievance.save();
 
-    return res.status(200).json({
+    res.status(200).json({
       message: "Progress update added successfully",
       grievance,
     });
   } catch (error) {
     console.error("Error adding progress update:", error);
-    return res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: "Server error" });
   }
 };
-
 
 //  console.log("req.params:",req.params);
 
@@ -517,21 +600,18 @@ exports.deleteLastActivityLog = async (req, res, next) => {
       grievance.assignedOfficer = null;
     }
 
-    grievance.status = last?.status || "Pending";
+    grievance.status = last.status;
 
-    // ✅ Skip validation on required fields
-    await grievance.save({ validateBeforeSave: false });
+    await grievance.save();
 
     return res.status(200).json({
       message: "Last activity log deleted",
       grievance,
     });
   } catch (error) {
-    console.error("Delete activity log error:", error);
     next(error);
   }
 };
-
 
 exports.deleteProgressUpdate = async (req, res, next) => {
   try {
@@ -573,6 +653,7 @@ exports.deleteProgressUpdate = async (req, res, next) => {
   }
 };
 
+
 exports.getGrievancesAssignedToOfficer = async (req, res) => {
   try {
     console.log("Authenticated user:", req.user); // 👈 Add this line
@@ -590,3 +671,17 @@ exports.getGrievancesAssignedToOfficer = async (req, res) => {
   }
 };
 
+
+
+exports.getAllGrievances = async(req,res, next) =>{
+  try {
+    const grievances = await Grievance.find()
+    // .populate('createdBy', 'fullName email role')
+    .populate('assignedOfficer', 'fullName email role' )
+    .populate('progressUpdates.updatedBy','fullName email role')
+
+    res.status(200).json({grievances});
+  } catch (error) {
+    next(error)
+  }
+}

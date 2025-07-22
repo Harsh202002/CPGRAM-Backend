@@ -1,5 +1,5 @@
 const express = require('express');
-const { createGrievance, getUserGrievances, getGrievancesByUniqueId, updateGrievanceStatus, updateGrievance,addProgressUpdate, trackGrievance, deleteProgressUpdate,deleteLastActivityLog, getGrievancesAssignedToOfficer} = require('../controllers/grievanceController');
+const { createGrievance, getUserGrievances, getGrievancesByUniqueId, updateGrievanceStatus, updateGrievance,addProgressUpdate, trackGrievance, deleteProgressUpdate,deleteLastActivityLog, getGrievancesAssignedToOfficer,getAllGrievances} = require('../controllers/grievanceController');
 const { protect } = require('../middlewares/authMiddleware');
 const { upload } = require('../middlewares/uploadMiddleware');
 // const {body} = require('express-validator');
@@ -16,5 +16,5 @@ router.post('/progress/:grievanceId',protect,addProgressUpdate)
 router.post('/track',protect,trackGrievance)
 router.delete('/progress-delete/:grievanceId/:progressId',protect,deleteProgressUpdate)
 router.delete('/status-delete/:grievanceId',protect,deleteLastActivityLog)
-
+router.get('/getallgrv', protect, getAllGrievances);
 module.exports = router;
