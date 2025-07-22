@@ -365,7 +365,7 @@ exports.updateGrievanceStatus = async (req, res, next) => {
       grievance.assignedOfficer = userId;
     }
 
-    await grievance.save();
+    await grievance.save({ validateModifiedOnly: true });
 
     return res.status(200).json({
       message: "Status updated successfully",
@@ -380,7 +380,12 @@ exports.addProgressUpdate = async (req, res) => {
   try {
     const { grievanceId } = req.params;
     const { message } = req.body;
-    const officerId = req.user._id; // assuming you're using JWT & middleware to attach user
+    const officerId = req.user._id;
+
+    // Validate message
+    if (!message || message.trim() === "") {
+      return res.status(400).json({ error: "Progress message is required" });
+    }
 
     // Fetch the grievance
     const grievance = await Grievance.findById(grievanceId);
@@ -388,20 +393,23 @@ exports.addProgressUpdate = async (req, res) => {
       return res.status(404).json({ error: "Grievance not found" });
     }
 
-    // Check if current user is assigned officer
+    // Check if grievance has an assigned officer
+    if (!grievance.assignedOfficer) {
+      return res.status(403).json({ error: "No officer is assigned to this grievance" });
+    }
+
+    // Check if current user is the assigned officer
     if (grievance.assignedOfficer.toString() !== officerId.toString()) {
       return res
         .status(403)
-        .json({ error: "Only assigned officer can update progress" });
+        .json({ error: "Only the assigned officer can add progress updates" });
     }
 
-    // Check if status is "In Progress"
+    // Check if the grievance is currently in "In Progress" status
     if (grievance.status !== "In Progress") {
-      return res
-        .status(400)
-        .json({
-          error: 'Progress updates allowed only when status is "In Progress"',
-        });
+      return res.status(400).json({
+        error: 'Progress updates are allowed only when status is "In Progress"',
+      });
     }
 
     // Push the new progress update
@@ -412,15 +420,16 @@ exports.addProgressUpdate = async (req, res) => {
 
     await grievance.save();
 
-    res.status(200).json({
+    return res.status(200).json({
       message: "Progress update added successfully",
       grievance,
     });
   } catch (error) {
     console.error("Error adding progress update:", error);
-    res.status(500).json({ error: "Server error" });
+    return res.status(500).json({ error: "Server error" });
   }
 };
+
 
 //  console.log("req.params:",req.params);
 
@@ -508,18 +517,21 @@ exports.deleteLastActivityLog = async (req, res, next) => {
       grievance.assignedOfficer = null;
     }
 
-    grievance.status = last.status;
+    grievance.status = last?.status || "Pending";
 
-    await grievance.save();
+    // ✅ Skip validation on required fields
+    await grievance.save({ validateBeforeSave: false });
 
     return res.status(200).json({
       message: "Last activity log deleted",
       grievance,
     });
   } catch (error) {
+    console.error("Delete activity log error:", error);
     next(error);
   }
 };
+
 
 exports.deleteProgressUpdate = async (req, res, next) => {
   try {
@@ -560,3 +572,21 @@ exports.deleteProgressUpdate = async (req, res, next) => {
     next(err);
   }
 };
+
+exports.getGrievancesAssignedToOfficer = async (req, res) => {
+  try {
+    console.log("Authenticated user:", req.user); // 👈 Add this line
+
+    const officerId = req.user._id;
+
+    const grievances = await Grievance.find({ assignedOfficer: officerId })
+      .populate("user", "fullName email phoneNumber")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json(grievances);
+  } catch (err) {
+    console.error("Error fetching assigned grievances:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
