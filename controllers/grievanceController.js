@@ -1,5 +1,6 @@
 const Grievance = require("../models/grievanceModel");
 const User = require("../models/userModel");
+const mongoose = require('mongoose');
 const ProgressUpdate = require("../models/progressUpdateModel");
 const sendEmail = require("../utils/sendEmail");
 const generateUniqueID = require("../utils/generateUniqueID");
@@ -101,10 +102,8 @@ exports.createGrievance = async (req, res, next) => {
 
 exports.getGrievancesByUniqueId = async (req, res, next) => {
   try {
-    const {uniqueID} = req.params;
-    const grievance = await Grievance.findOne(
-      {uniqueID}
-    )
+    const { uniqueID } = req.params;
+    const grievance = await Grievance.findOne({ uniqueID });
     //.populate("user", "fullName email");
     if (!grievance) {
       return res.status(404).json({ message: "Grievance not found" });
@@ -181,17 +180,16 @@ exports.updateGrievance = async (req, res, next) => {
   }
 };
 
-
 exports.trackGrievance = async (req, res, next) => {
   try {
     const { email, uniqueID } = req.body;
- 
+
     const user = await User.findOne({ email });
- 
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
- 
+
     const grievance = await Grievance.findOne({ uniqueID, user: user._id })
       .populate({
         path: "progressUpdates",
@@ -202,14 +200,14 @@ exports.trackGrievance = async (req, res, next) => {
       })
       .populate("activityLog.updatedBy", "fullName role")
       .populate("assignedOfficer", "fullName department phoneNumber"); // <--- ADD THIS LINE HERE!
- 
+
     if (!grievance) {
       return res.status(404).json({ message: "Grievance not found" });
     }
- 
+
     // const recentUpdates = grievance.activityLog.filter(log => log.status === 'In Progress' || log.status === 'resolved').slice(-3);
     const canSendRemainder = checkRemainderEligibility(grievance.createdAt);
- 
+
     // This `ProgressUpdate.find` query is separate and its `assignedOfficer`
     // population only affects the `progressUpdates` variable here,
     // not `grievance.assignedOfficer`.
@@ -222,16 +220,16 @@ exports.trackGrievance = async (req, res, next) => {
       .populate("updatedBy", "fullName role")
       .populate("assignedOfficer", "fullName department phoneNumber") // This populates assignedOfficer for progressUpdates
       .sort({ timestamp: -1 });
- 
+
     res.json({
       personalInfo: {
         name: grievance.fullName,
-email: grievance.email,
+        email: grievance.email,
         gender: grievance.gender,
         DOB: grievance.dateOfBirth,
         addressLine1: grievance.addressLine1,
         addressLine2: grievance.addressLine2,
-city: grievance.city,
+        city: grievance.city,
         state: grievance.state,
         district: grievance.district,
         postalCode: grievance.postalCode,
@@ -251,11 +249,17 @@ city: grievance.city,
       currentStatus: grievance.status,
       // Now, grievance.assignedOfficer should be populated, so you can access its properties.
       // Added a null check just in case assignedOfficer might not exist for some grievances.
-      assignedTo: grievance.assignedOfficer ? grievance.assignedOfficer.fullName : null,
-      assignedOfficerDepartment: grievance.assignedOfficer ? grievance.assignedOfficer.department : null,
-      assignedOfficerPhone: grievance.assignedOfficer ? grievance.assignedOfficer.phoneNumber : null,
+      assignedTo: grievance.assignedOfficer
+        ? grievance.assignedOfficer.fullName
+        : null,
+      assignedOfficerDepartment: grievance.assignedOfficer
+        ? grievance.assignedOfficer.department
+        : null,
+      assignedOfficerPhone: grievance.assignedOfficer
+        ? grievance.assignedOfficer.phoneNumber
+        : null,
 
-       // Added department as well
+      // Added department as well
       recentUpdates: grievance.activityLog,
       progressUpdates: grievance.progressUpdates.map((p) => ({
         _id: p._id,
@@ -424,9 +428,13 @@ exports.updateGrievanceStatus = async (req, res, next) => {
 
     const allowedFlow = ["Pending", "In Progress", "Resolved", "Closed"];
 
-    const lastStatus = grievance.activityLog?.length
-      ? grievance.activityLog[grievance.activityLog.length - 1].status
-      : "Pending"; // fallback default
+    const lastStatusUpdate = grievance.progressUpdates
+      .filter((entry) => entry.message?.toLowerCase().includes("updated by"))
+      .slice(-1)[0];
+
+    const lastStatus = lastStatusUpdate
+      ? lastStatusUpdate.message.split(" updated by")[0]
+      : "Pending";
 
     const currentIndex = allowedFlow.indexOf(lastStatus);
     const newIndex = allowedFlow.indexOf(status);
@@ -442,12 +450,13 @@ exports.updateGrievanceStatus = async (req, res, next) => {
       });
     }
 
-    // Add new entry in activity log
-    grievance.activityLog.push({
-      message: `${status} updated by ${userName}`,
-      updatedBy: userId,
+    // ✅ Add status update WITH timestamp
+    grievance.progressUpdates.push({
       status,
-      comment,
+      message: `${status} updated by ${userName}`,
+      comment: comment || "",
+      updatedBy: userId,
+      timestamp: new Date(), // ✅ Ensure timestamp is always present
     });
 
     grievance.status = status;
@@ -472,44 +481,63 @@ exports.addProgressUpdate = async (req, res) => {
   try {
     const { grievanceId } = req.params;
     const { message } = req.body;
-    const officerId = req.user._id; // assuming you're using JWT & middleware to attach user
+    const officerId = req.user._id;
 
-    // Fetch the grievance
     const grievance = await Grievance.findById(grievanceId);
     if (!grievance) {
       return res.status(404).json({ error: "Grievance not found" });
     }
 
-    // Check if current user is assigned officer
     if (grievance.assignedOfficer.toString() !== officerId.toString()) {
-      return res
-        .status(403)
-        .json({ error: "Only assigned officer can update progress" });
+      return res.status(403).json({ error: "Only assigned officer can update progress" });
     }
 
-    // Check if status is "In Progress"
     if (grievance.status !== "In Progress") {
-      return res
-        .status(400)
-        .json({
-          error: 'Progress updates allowed only when status is "In Progress"',
-        });
+      return res.status(400).json({
+        error: 'Progress updates allowed only when status is "In Progress"',
+      });
     }
 
-    // Push the new progress update
-    grievance.progressUpdates.push({
+    const newProgress = {
       message,
-      updatedBy: officerId,
+      timestamp: new Date(),
+    };
+
+    grievance.progressUpdates.push(newProgress); // ✅ Add to progress updates
+
+    grievance.activityLog.push({
+      message: `Progress update: ${message}`,
+      updatedBy: officerId, // ✅ Make sure Officer model has .name, .email etc.
+      timestamp: new Date(),
     });
 
     await grievance.save();
 
+    const updatedGrievance = await Grievance.findById(grievanceId).populate(
+      "activityLog.updatedBy"
+    );
+
     res.status(200).json({
       message: "Progress update added successfully",
-      grievance,
+      grievance: updatedGrievance,
     });
   } catch (error) {
     console.error("Error adding progress update:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+
+exports.getActivityLog = async (req, res) => {
+  try {
+    const grievance = await Grievance.findById(req.params.id);
+    if (!grievance) {
+      return res.status(404).json({ error: "Grievance not found" });
+    }
+
+    res.status(200).json(grievance); // includes activityLog
+  } catch (error) {
+    console.error("Error fetching grievance:", error);
     res.status(500).json({ error: "Server error" });
   }
 };
@@ -618,41 +646,44 @@ exports.deleteProgressUpdate = async (req, res, next) => {
     const { grievanceId, progressId } = req.params;
     const userId = req.user._id;
 
-    const grievance = await Grievance.findById(grievanceId);
+    if (!mongoose.Types.ObjectId.isValid(grievanceId) || !mongoose.Types.ObjectId.isValid(progressId)) {
+      return res.status(400).json({ message: "Invalid ID(s) provided" });
+    }
 
+    const grievance = await Grievance.findById(grievanceId);
     if (!grievance) {
       return res.status(404).json({ message: "Grievance not found" });
     }
 
-    // Find the progress update
-    const progress = grievance.progressUpdates.id(progressId);
-    if (!progress) {
+    const progressIndex = grievance.progressUpdates.findIndex(
+      (update) => update._id.toString() === progressId
+    );
+
+    if (progressIndex === -1) {
       return res.status(404).json({ message: "Progress update not found" });
     }
 
-    const isAuthor = progress.updatedBy.toString() === userId.toString();
-    const isAssigned =
-      grievance.assignedOfficer?.toString() === userId.toString();
-    const isLead =
-      grievance.escalatedLeadOfficer?.toString() === userId.toString(); // Optional
+    const progress = grievance.progressUpdates[progressIndex];
+
+    const isAuthor = progress.updatedBy?.toString() === userId?.toString();
+    const isAssigned = grievance.assignedOfficer?.toString() === userId?.toString();
+    const isLead = grievance.escalatedLeadOfficer?.toString() === userId?.toString();
 
     if (!isAuthor && !isAssigned && !isLead) {
-      return res
-        .status(403)
-        .json({ message: "Unauthorized to delete this progress message" });
+      return res.status(403).json({ message: "Unauthorized to delete this progress message" });
     }
 
-    // Remove the progress update
-    progress.deleteOne();
+    grievance.progressUpdates.splice(progressIndex, 1);
     await grievance.save();
 
-    res.status(200).json({ message: "Progress message deleted successfully" });
+    return res.status(200).json({ message: "Progress message deleted successfully" });
   } catch (err) {
-    console.error(err);
-    next(err);
+    console.error("Delete Progress Error:", err);
+    if (!res.headersSent) {
+      return res.status(500).json({ message: "Server error", error: err.message });
+    }
   }
 };
-
 
 exports.getGrievancesAssignedToOfficer = async (req, res) => {
   try {
@@ -671,19 +702,15 @@ exports.getGrievancesAssignedToOfficer = async (req, res) => {
   }
 };
 
-
-
-exports.getAllGrievances = async(req,res, next) =>{
+exports.getAllGrievances = async (req, res, next) => {
   try {
     const grievances = await Grievance.find()
-    .populate('user', 'fullName email role')
-    .populate('assignedOfficer', 'fullName email role' )
-    .populate('progressUpdates.updatedBy','fullName email role')
+      .populate("user", "fullName email role")
+      .populate("assignedOfficer", "fullName email role")
+      .populate("progressUpdates.updatedBy", "fullName email role");
 
-    res.status(200).json({grievances});
+    res.status(200).json({ grievances });
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
-
-
+};
