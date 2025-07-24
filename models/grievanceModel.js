@@ -146,7 +146,17 @@ const grievanceSchema = new mongoose.Schema({
     isClosed: {
         type: Boolean,
         default: false
-    }
+    },
+    reminders: [{
+        sentBy:{
+            type:mongoose.Schema.Types.ObjectId,
+            ref:'User'
+        },
+        timestamp:{
+            type:Date,
+            default:Date.now
+        }
+ } ]
 
 },{timestamps: true});
 

@@ -68,5 +68,86 @@ exports.getAllOfficer = async(req,res,next) =>{
 }
 
 
+exports.getGrievanceStats = async (req, res, next) => {
+  try {
+    const total = await Grievance.countDocuments();
+ 
+    const pendingReview = await Grievance.countDocuments({ status: 'pending_review' });
+    const inProgress = await Grievance.countDocuments({ status: 'in_progress' });
+    const resolved = await Grievance.countDocuments({ status: 'resolved' });
+ 
+    res.status(200).json({
+      totalGrievances: total,
+      pendingReview,
+      inProgress,
+      resolved
+    });
+  } catch (err) {
+    console.error('Error getting grievance stats:', err);
+    next(err);
+  }
+};
+
+
+exports.getRecentGrievances = async (req, res, next) => {
+  try {
+    const recentGrievances = await Grievance.find()
+      .sort({ createdAt: -1 }) // descending by date
+      .limit(5)
+      .populate('createdBy', 'name email') // optional: populate user info
+      .populate('assignedTo', 'name')       // optional: populate assigned officer
+      .populate('escalatedLeadOfficer', 'name'); // optional
+ 
+    res.status(200).json({
+      success: true,
+      grievances: recentGrievances
+    });
+  } catch (err) {
+    console.error('Error fetching recent grievances:', err);
+    next(err);
+  }
+};
+
+exports.getRecentActivities = async (req, res) => {
+  try {
+    // Flatten all activity logs from all grievances
+    const grievances = await Grievance.find({}, "ticketId activityLog")
+      .populate("activityLog.updatedBy", "name role")
+      .sort({ "activityLog.timestamp": -1 });
+ 
+    let activities = [];
+ 
+    grievances.forEach((grievance) => {
+      grievance.activityLog.forEach((log) => {
+        activities.push({
+          ticketId: grievance.ticketId,
+          status: log.status,
+          message: log.message,
+          comment: log.comment,
+          updatedBy: log.updatedBy?.name || "System",
+          role: log.updatedBy?.role || "System",
+          timestamp: log.timestamp,
+        });
+      });
+    });
+ 
+    // Sort by timestamp descending and limit to 5 recent activities
+    activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    const recentActivities = activities.slice(0, 5);
+ 
+    res.status(200).json({
+      success: true,
+      data: recentActivities,
+    });
+  } catch (error) {
+    console.error("Error fetching recent activities:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+
 
 

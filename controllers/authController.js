@@ -2,6 +2,7 @@ const User = require('../models/userModel');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const sendEmail = require('../utils/sendEmail');
+const sendOTP = require('../utils/SendOTP')
 const {getWelcomeEmailTemplate} = require('../utils/emailTemplates');
 const {validationResult} = require('express-validator');
 
@@ -9,6 +10,8 @@ const {validationResult} = require('express-validator');
 const generateToken = (id) => 
     jwt.sign({id}, process.env.JWT_SECRET, {
         expiresIn: '7d',  } );
+
+  const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();      
 
 // exports.registerUser = async (req, res) => {
 //     const errors = validationResult(req);
@@ -188,3 +191,99 @@ exports.loginUser = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 }
+
+exports.forgotPassword = async (req, res, next) => {
+
+  try {
+     const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ message: "Email is required" });
+  }
+
+  // Find student by email
+  const user = await User.findOne({ email });
+
+  if (!user) {
+    return res.status(400).json({ message: "Student not found" });
+  }
+
+  // Generate OTP for password reset
+  const otp = generateOTP();
+  const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // OTP valid for 10 minutes
+
+  // Update student with OTP for password reset
+  user.resetOtp = otp;
+  user.resetOtpExpires = otpExpires;
+  await user.save();
+
+  // Send the OTP via email
+  await sendOTP(email, otp);
+
+  res.status(200).json({ message: "Password reset OTP sent to email. Please verify." });
+  } catch (error) {
+    next(error)
+  }
+};
+
+
+
+exports.verifyForgotPasswordOTP = async (req, res, next) => {
+ try {
+   const { otp } = req.body;
+
+  if (!otp) {
+    return res.status(400).json({ message: "OTP is required" });
+  }
+
+  // Find student by OTP and check if OTP is not expired
+  const user = await User.findOne({
+    resetOtp: otp,
+    resetOtpExpires: { $gt: Date.now() }, // Ensures OTP is not expired
+  });
+
+  if (!user) {
+    return res.status(400).json({ message: "Invalid or expired OTP" });
+  }
+
+  // Clear OTP after successful verification
+  user.resetOtp = undefined;
+  user.resetOtpExpires = undefined;
+  await user.save();
+
+  res.json({ message: "OTP verified successfully. You can now reset your password." });
+ } catch (error) {
+  next(error)
+ }
+};
+
+
+exports.resetPassword = async (req, res, next) => {
+ try {
+   const { email, newPassword } = req.body;
+
+  if (!email || !newPassword ) {
+    return res.status(400).json({ message: "All fields are required" });
+  }
+
+  
+
+  // Find student by email
+  const user = await User.findOne({ email });
+
+  if (!user) {
+    return res.status(400).json({ message: "Student not found" });
+  }
+
+  // ✅ Directly assign new password (pre-save hook will hash it)
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+  user.password = hashedPassword;
+
+  // Save updated student
+  await user.save();
+
+  res.json({ message: "Password reset successful. You can now log in with your new password." });
+ } catch (error) {
+  next(error)
+ }
+};

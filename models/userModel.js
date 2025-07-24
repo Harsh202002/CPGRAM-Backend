@@ -53,7 +53,11 @@ const userSchema = new mongoose.Schema({
     password: {
         type: String,
         required: true,
-    }}, {
+    },
+     resetOtp: { type: String }, // Stores OTP for password reset
+    resetOtpExpires: { type: Date }, // OTP expiration time for password reset
+
+}, {
 
     timestamps: true,   })
 
