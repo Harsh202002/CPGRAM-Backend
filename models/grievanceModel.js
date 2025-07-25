@@ -141,11 +141,25 @@ const grievanceSchema = new mongoose.Schema(
     },
     assignedDate: { type: Date },
     isClosed: {
-        type: Boolean,
-        default: false
-    }
+      type: Boolean,
+      default: false,
+    },
 
-},{timestamps: true});
+    reminders: [
+      {
+        sentBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+        timestamp: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+  },
+  { timestamps: true }
+);
 
 module.exports = mongoose.model("Grievance", grievanceSchema);
 
