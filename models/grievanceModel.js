@@ -1,157 +1,154 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
-const grievanceSchema = new mongoose.Schema({
+const grievanceSchema = new mongoose.Schema(
+  {
     user: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
     },
     status: {
-        type: String,
-        enum: ['Pending', 'In Progress', 'Resolved', 'Closed'],
-        default: 'Pending'
+      type: String,
+      enum: ["Pending", "In Progress", "Resolved", "Closed"],
+      default: "Pending",
     },
     uniqueID: {
-        type: String,
-        required: true,
-        unique: true
+      type: String,
+      required: true,
+      unique: true,
     },
 
-       fullName: {
-        type: String,
-        required: true,
+    fullName: {
+      type: String,
+      required: true,
     },
     gender: {
-        type: String,  
+      type: String,
     },
-        
+
     email: {
-        type: String,
-        required: true,
-        unique: true,
+      type: String,
+      required: true,
+      unique: true,
     },
-    phoneNumber:{
-        type: String,
-       
+    phoneNumber: {
+      type: String,
     },
-    dateOfBirth:{
-        type:Date
+    dateOfBirth: {
+      type: Date,
     },
     addressLine1: {
-        type: String,
-        
+      type: String,
     },
-     addressLine2: {
-        type: String,
-        
+    addressLine2: {
+      type: String,
     },
     city: {
-        type: String,
-        
+      type: String,
     },
-    state:{
-        type: String,
-        
+    state: {
+      type: String,
     },
     district: {
-        type: String,
-       
+      type: String,
     },
-    pincode: {  
-        type: String,
-        
+    pincode: {
+      type: String,
     },
     ministryName: {
-        type: String,
-        required: true
+      type: String,
+      required: true,
     },
     departmentName: {
-        type: String,
-        required: true
+      type: String,
+      required: true,
     },
     publicAuthority: {
-        type: String,
-
+      type: String,
     },
     title: {
-        type: String,
-        required: true
+      type: String,
+      required: true,
     },
     category: {
-        type: String,
-      
+      type: String,
     },
     locationOfIssue: {
-        type: String,
-       
+      type: String,
     },
-    dateOfIncident:{
-        type: Date,
-       
+    dateOfIncident: {
+      type: Date,
     },
     grievanceDescription: {
-        type: String,
-        required: true
+      type: String,
+      required: true,
     },
-    attachments: [{
+    attachments: [
+      {
         public_id: String,
-        url: String
-    }],
+        url: String,
+      },
+    ],
     resolution: {
-        type: String,
+      type: String,
     },
     assignedTo: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
     },
     assignedBy: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
     },
     escalatedToLeadOfficer: {
-        type:Boolean,
-        default: false
+      type: Boolean,
+      default: false,
     },
-    escalatedLeadOfficer:{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        default: null
+    escalatedLeadOfficer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
     },
-    activityLog: [{
+    activityLog: [
+      {
         message: String,
         updatedBy: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'User'
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
         },
         comment: String,
         status: String,
-        timestamp: { type: Date, default: Date.now }
-    }],
-    assignedOfficer:{
-        type:mongoose.Schema.Types.ObjectId,
-        ref:'User'
+        timestamp: { type: Date, default: Date.now },
+      },
+    ],
+    assignedOfficer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
     },
-    progressUpdates:[{
+    progressUpdates: [
+      {
         message: String,
         updatedBy: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'User'
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
         },
-        timestamp: { type: Date, default: Date.now }
-    }],
+        timestamp: { type: Date, default: Date.now },
+      },
+    ],
     feedbackGiven: {
-        type: Boolean,
-        default: false
+      type: Boolean,
+      default: false,
     },
+    assignedDate: { type: Date },
     isClosed: {
-        type: Boolean,
-        default: false
-    }
+      type: Boolean,
+      default: false,
+    },
+  },
+  { timestamps: true }
+);
 
-},{timestamps: true});
-
-module.exports = mongoose.model('Grievance', grievanceSchema);
-
+module.exports = mongoose.model("Grievance", grievanceSchema);
 
 //  activityLog: [{
 //         message: String,
@@ -162,7 +159,6 @@ module.exports = mongoose.model('Grievance', grievanceSchema);
 //         status: String,
 //         timestamp: { type: Date, default: Date.now }
 //     }],
-
 
 // activityLog: [{
 //         message: String,
