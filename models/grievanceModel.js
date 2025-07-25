@@ -141,12 +141,11 @@ const grievanceSchema = new mongoose.Schema(
     },
     assignedDate: { type: Date },
     isClosed: {
-      type: Boolean,
-      default: false,
-    },
-  },
-  { timestamps: true }
-);
+        type: Boolean,
+        default: false
+    }
+
+},{timestamps: true});
 
 module.exports = mongoose.model("Grievance", grievanceSchema);
 

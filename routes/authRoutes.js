@@ -1,5 +1,5 @@
 const express = require('express');
-const {registerUser, loginUser} = require('../controllers/authController');
+const {registerUser, loginUser, forgotPassword,verifyForgotPasswordOTP,resetPassword } = require('../controllers/authController');
 const{body} = require('express-validator');
 const { protect } = require('../middlewares/authMiddleware');
 const { allowRoles } = require('../middlewares/roleMiddleware');
@@ -12,6 +12,10 @@ router.post('/login', [
     body('email').isEmail().withMessage('Valid email is required'),
     body('password').notEmpty().withMessage('Password is required'),
 ], loginUser);
+
+router.post('/forgot-password',  forgotPassword);
+router.post('/verify-forgot-password',verifyForgotPasswordOTP);
+router.post('/reset-password',resetPassword);
 
 
 

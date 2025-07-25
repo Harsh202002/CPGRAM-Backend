@@ -115,11 +115,15 @@ exports.getAllOfficer = async (req, res, next) => {
       role: "officer",
     }).select("-password");
 
-    res.status(200).json({
-      message: "officers fetched successfully",
-      officers,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
+        res.status(200).json({
+            message:'officers fetched successfully',
+            officers
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+
+
+
