@@ -101,10 +101,8 @@ exports.createGrievance = async (req, res, next) => {
 
 exports.getGrievancesByUniqueId = async (req, res, next) => {
   try {
-    const {uniqueID} = req.params;
-    const grievance = await Grievance.findOne(
-      {uniqueID}
-    )
+    const { uniqueID } = req.params;
+    const grievance = await Grievance.findOne({ uniqueID });
     //.populate("user", "fullName email");
     if (!grievance) {
       return res.status(404).json({ message: "Grievance not found" });
@@ -181,17 +179,16 @@ exports.updateGrievance = async (req, res, next) => {
   }
 };
 
-
 exports.trackGrievance = async (req, res, next) => {
   try {
     const { email, uniqueID } = req.body;
- 
+
     const user = await User.findOne({ email });
- 
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
- 
+
     const grievance = await Grievance.findOne({ uniqueID, user: user._id })
       .populate({
         path: "progressUpdates",
@@ -202,14 +199,14 @@ exports.trackGrievance = async (req, res, next) => {
       })
       .populate("activityLog.updatedBy", "fullName role")
       .populate("assignedOfficer", "fullName department phoneNumber"); // <--- ADD THIS LINE HERE!
- 
+
     if (!grievance) {
       return res.status(404).json({ message: "Grievance not found" });
     }
- 
+
     // const recentUpdates = grievance.activityLog.filter(log => log.status === 'In Progress' || log.status === 'resolved').slice(-3);
     const canSendRemainder = checkRemainderEligibility(grievance.createdAt);
- 
+
     // This `ProgressUpdate.find` query is separate and its `assignedOfficer`
     // population only affects the `progressUpdates` variable here,
     // not `grievance.assignedOfficer`.
@@ -222,16 +219,16 @@ exports.trackGrievance = async (req, res, next) => {
       .populate("updatedBy", "fullName role")
       .populate("assignedOfficer", "fullName department phoneNumber") // This populates assignedOfficer for progressUpdates
       .sort({ timestamp: -1 });
- 
+
     res.json({
       personalInfo: {
         name: grievance.fullName,
-email: grievance.email,
+        email: grievance.email,
         gender: grievance.gender,
         DOB: grievance.dateOfBirth,
         addressLine1: grievance.addressLine1,
         addressLine2: grievance.addressLine2,
-city: grievance.city,
+        city: grievance.city,
         state: grievance.state,
         district: grievance.district,
         postalCode: grievance.postalCode,
@@ -251,11 +248,17 @@ city: grievance.city,
       currentStatus: grievance.status,
       // Now, grievance.assignedOfficer should be populated, so you can access its properties.
       // Added a null check just in case assignedOfficer might not exist for some grievances.
-      assignedTo: grievance.assignedOfficer ? grievance.assignedOfficer.fullName : null,
-      assignedOfficerDepartment: grievance.assignedOfficer ? grievance.assignedOfficer.department : null,
-      assignedOfficerPhone: grievance.assignedOfficer ? grievance.assignedOfficer.phoneNumber : null,
+      assignedTo: grievance.assignedOfficer
+        ? grievance.assignedOfficer.fullName
+        : null,
+      assignedOfficerDepartment: grievance.assignedOfficer
+        ? grievance.assignedOfficer.department
+        : null,
+      assignedOfficerPhone: grievance.assignedOfficer
+        ? grievance.assignedOfficer.phoneNumber
+        : null,
 
-       // Added department as well
+      // Added department as well
       recentUpdates: grievance.activityLog,
       progressUpdates: grievance.progressUpdates.map((p) => ({
         _id: p._id,
@@ -415,7 +418,7 @@ exports.updateGrievanceStatus = async (req, res, next) => {
     const userName = req.user.fullName;
 
     const grievance = await Grievance.findById(grievanceId).populate(
-      "activityLog.updatedBy"
+      "progressUpdates.updatedBy"
     );
 
     if (!grievance) {
@@ -424,35 +427,32 @@ exports.updateGrievanceStatus = async (req, res, next) => {
 
     const allowedFlow = ["Pending", "In Progress", "Resolved", "Closed"];
 
-    const lastStatus = grievance.activityLog?.length
-      ? grievance.activityLog[grievance.activityLog.length - 1].status
-      : "Pending"; // fallback default
+    const lastStatus = grievance.status || "Pending"; // fallback default
 
     const currentIndex = allowedFlow.indexOf(lastStatus);
     const newIndex = allowedFlow.indexOf(status);
 
-    if (newIndex === -1) {
-      return res.status(400).json({ message: "Invalid status value" });
-    }
-
     if (newIndex <= currentIndex) {
       return res.status(400).json({
         message:
-          "Cannot revert to a previous or same status. Please delete the last activity log to change status backward.",
+          "Cannot revert to a previous or same status. Please delete the last progress update to change status backward.",
       });
     }
 
-    // Add new entry in activity log
-    grievance.activityLog.push({
+    // ✅ Push status update to progressUpdates instead of activityLog
+    grievance.progressUpdates.push({
       message: `${status} updated by ${userName}`,
       updatedBy: userId,
       status,
       comment,
+      updatedBy: userId,
+      timestamp: new Date(),
     });
 
+    // ✅ Update grievance's current status
     grievance.status = status;
 
-    // Assign officer if status is moved to 'In Progress'
+    // ✅ Assign officer if status is moved to 'In Progress'
     if (status === "In Progress") {
       grievance.assignedOfficer = userId;
     }
@@ -489,11 +489,9 @@ exports.addProgressUpdate = async (req, res) => {
 
     // Check if status is "In Progress"
     if (grievance.status !== "In Progress") {
-      return res
-        .status(400)
-        .json({
-          error: 'Progress updates allowed only when status is "In Progress"',
-        });
+      return res.status(400).json({
+        error: 'Progress updates allowed only when status is "In Progress"',
+      });
     }
 
     // Push the new progress update
@@ -591,16 +589,29 @@ exports.deleteLastActivityLog = async (req, res, next) => {
       return res.status(404).json({ message: "No activity log to delete" });
     }
 
-    // Remove last log
+    // Remove last activity log
     grievance.activityLog.pop();
 
-    // Re-check last status for assignedOfficer reset
+    // Get new last activity log (after popping)
     const last = grievance.activityLog[grievance.activityLog.length - 1];
+
+    // Reset assigned officer if status isn't "In Progress"
     if (!last || last.status !== "In Progress") {
       grievance.assignedOfficer = null;
     }
 
-    grievance.status = last.status;
+    // Validate and safely assign status
+    const allowedStatusValues = [
+      "Pending",
+      "In Progress",
+      "Resolved",
+      "Closed",
+    ];
+    if (last?.status && allowedStatusValues.includes(last.status)) {
+      grievance.status = last.status;
+    } else {
+      grievance.status = "Pending"; // fallback
+    }
 
     await grievance.save();
 
@@ -616,43 +627,42 @@ exports.deleteLastActivityLog = async (req, res, next) => {
 exports.deleteProgressUpdate = async (req, res, next) => {
   try {
     const { grievanceId, progressId } = req.params;
-    const userId = req.user._id;
 
     const grievance = await Grievance.findById(grievanceId);
-
     if (!grievance) {
       return res.status(404).json({ message: "Grievance not found" });
     }
 
-    // Find the progress update
-    const progress = grievance.progressUpdates.id(progressId);
-    if (!progress) {
-      return res.status(404).json({ message: "Progress update not found" });
+    // Remove the progress update by ID
+    grievance.progressUpdates = grievance.progressUpdates.filter(
+      (p) => p._id.toString() !== progressId
+    );
+
+    // 🟡 If no progress updates remain, fallback to "Pending"
+    if (grievance.progressUpdates.length === 0) {
+      grievance.status = "Pending";
+      grievance.assignedOfficer = null;
+    } else {
+      // 🟢 Otherwise, revert status to the last one in the list
+      const lastUpdate =
+        grievance.progressUpdates[grievance.progressUpdates.length - 1];
+      grievance.status = lastUpdate.status;
+
+      // Only assign officer if last status is "In Progress"
+      grievance.assignedOfficer =
+        lastUpdate.status === "In Progress" ? grievance.assignedOfficer : null;
     }
 
-    const isAuthor = progress.updatedBy.toString() === userId.toString();
-    const isAssigned =
-      grievance.assignedOfficer?.toString() === userId.toString();
-    const isLead =
-      grievance.escalatedLeadOfficer?.toString() === userId.toString(); // Optional
-
-    if (!isAuthor && !isAssigned && !isLead) {
-      return res
-        .status(403)
-        .json({ message: "Unauthorized to delete this progress message" });
-    }
-
-    // Remove the progress update
-    progress.deleteOne();
     await grievance.save();
 
-    res.status(200).json({ message: "Progress message deleted successfully" });
-  } catch (err) {
-    console.error(err);
-    next(err);
+    return res.status(200).json({
+      message: "Progress update deleted",
+      grievance,
+    });
+  } catch (error) {
+    next(error);
   }
 };
-
 
 exports.getGrievancesAssignedToOfficer = async (req, res) => {
   try {
@@ -671,109 +681,107 @@ exports.getGrievancesAssignedToOfficer = async (req, res) => {
   }
 };
 
-
-
-exports.getAllGrievances = async(req,res, next) =>{
+exports.getAllGrievances = async (req, res, next) => {
   try {
     const grievances = await Grievance.find()
-    .populate('user', 'fullName email role')
-    .populate('assignedOfficer', 'fullName email role' )
-    .populate('progressUpdates.updatedBy','fullName email role')
+      .populate("user", "fullName email role")
+      .populate("assignedOfficer", "fullName email role")
+      .populate("progressUpdates.updatedBy", "fullName email role");
 
-    res.status(200).json({grievances});
+    res.status(200).json({ grievances });
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
-
+};
 
 // exports.sendReminder = async (req, res, next) => {
 //   try {
 //     const userId = req.user._id;
 //     const { grievanceId } = req.params;
- 
+
 //     // 1. Find grievance
 //     const grievance = await Grievance.findById(grievanceId)
 //       .populate('user', 'fullName email')
 //       .populate('assignedTo', 'fullName email')
 //       .populate('progressUpdates.updatedBy', 'fullName role');
- 
+
 //     if (!grievance) {
 //       return res.status(404).json({ message: 'Grievance not found' });
 //     }
- 
+
 //     // 2. Check if the user is the owner of the grievance
 //     if (grievance.user._id.toString() !== userId.toString()) {
 //       return res.status(403).json({ message: 'You are not allowed to send a reminder for this grievance' });
 //     }
- 
+
 //     // 3. Check if grievance is assigned to an officer
 //     // if (!grievance.assignedTo) {
 //     //   return res.status(400).json({ message: 'Grievance is not assigned to any officer yet' });
 //     // }
- 
+
 //     // 4. Optionally log the reminder in grievance
 //     grievance.reminders.push({ sentBy: userId });
 //     await grievance.save();
- 
+
 //     // 5. Return grievance details (to be sent/shown to officer)
 //     res.status(200).json({
 //       message: 'Reminder sent successfully',
 //       grievance,
 //     });
- 
+
 //     // 🔔 OPTIONAL: You can integrate notification/email service to alert the officer
- 
+
 //   } catch (err) {
 //     console.error('Reminder error:', err);
 //     next(err);
 //   }
 // };
 
-
 exports.sendReminder = async (req, res, next) => {
   try {
     const { grievanceId } = req.params;
     const userId = req.user._id;
- 
+
     const grievance = await Grievance.findById(grievanceId);
- 
+
     if (!grievance) {
-      return res.status(404).json({ message: 'Grievance not found' });
+      return res.status(404).json({ message: "Grievance not found" });
     }
- 
+
     // Push reminder into grievance
     grievance.reminders.push({
       sentBy: userId,
-      timestamp: new Date()
+      timestamp: new Date(),
     });
- 
+
     await grievance.save();
- 
+
     // Send notification (in real system, you would send email or push notification)
     let recipient;
- 
+
     if (grievance.assignedTo) {
       recipient = await User.findById(grievance.assignedTo);
     } else {
       // Find first lead officer
-      recipient = await User.findOne({ role: 'lead_officer' });
+      recipient = await User.findOne({ role: "lead_officer" });
     }
- 
+
     if (!recipient) {
-      return res.status(404).json({ message: 'No officer or lead officer found to send reminder' });
+      return res
+        .status(404)
+        .json({ message: "No officer or lead officer found to send reminder" });
     }
- 
+
     res.status(200).json({
-message: `Reminder sent successfully to ${recipient.fullName}`,
+      message: `Reminder sent successfully to ${recipient.fullName}`,
       recipient: {
-name: recipient.fullName,
-email: recipient.email,
-        role: recipient.role
-      }
+        name: recipient.fullName,
+        email: recipient.email,
+        role: recipient.role,
+      },
     });
   } catch (err) {
-    console.error('Reminder send error:', err);
+    console.error("Reminder send error:", err);
     next(err);
   }
 };
@@ -805,39 +813,42 @@ email: recipient.email,
 //   }
 // }
 
-
 exports.getAllReminders = async (req, res, next) => {
   try {
     const officerId = req.user._id;
     const role = req.user.role;
- 
-    if (role !== 'officer' && role !== 'lead_officer') {
-      return res.status(403).json({ message: 'Access denied. Only officers can view reminders.' });
+
+    if (role !== "officer" && role !== "lead_officer") {
+      return res
+        .status(403)
+        .json({ message: "Access denied. Only officers can view reminders." });
     }
- 
+
     let query;
- 
-    if (role === 'officer') {
+
+    if (role === "officer") {
       // Officer sees reminders for grievances assigned to them
       query = { assignedTo: officerId, reminders: { $exists: true, $ne: [] } };
-    } else if (role === 'lead_officer') {
+    } else if (role === "lead_officer") {
       // Lead officer sees reminders for grievances that are not yet assigned
-      query = { assignedTo: { $exists: false }, reminders: { $exists: true, $ne: [] } };
+      query = {
+        assignedTo: { $exists: false },
+        reminders: { $exists: true, $ne: [] },
+      };
     }
- 
+
     const grievances = await Grievance.find(query)
-      .populate('user', 'fullName email')
-      .populate('reminders.sentBy', 'fullName email')
-      .populate('progressUpdates.updatedBy', 'fullName')
+      .populate("user", "fullName email")
+      .populate("reminders.sentBy", "fullName email")
+      .populate("progressUpdates.updatedBy", "fullName")
       .sort({ updatedAt: -1 });
- 
+
     res.status(200).json({
       count: grievances.length,
       grievances,
     });
   } catch (err) {
-    console.error('Error fetching reminders:', err);
+    console.error("Error fetching reminders:", err);
     next(err);
   }
 };
-

@@ -17,7 +17,13 @@ router.get(
   allowRoles("lead_officer", "officer"),
   officerController.getGrievanceById
 );
-router.put("/unassign", protect, officerController.unassignGrievance);
+router.put(
+  "/unassign/:id",
+  protect,
+  allowRoles("lead_officer"),
+  officerController.unassignGrievance
+);
+
 router.get(
   "/assigned-grv",
   protect,

@@ -61,11 +61,14 @@ exports.getGrievanceById = async (req, res, next) => {
 
 exports.unassignGrievance = async (req, res, next) => {
   try {
-    const { grievanceId } = req.body;
+    const { id } = req.params;
 
     const grievance = await Grievance.findByIdAndUpdate(
-      grievanceId,
-      { $unset: { assignedTo: "" } }, // <-- this removes the field
+      id,
+      {
+        $unset: { assignedTo: "", assignedDate: "" },
+        // Optional: $set: { status: "Pending Assignment" }
+      },
       { new: true }
     )
       .populate(
@@ -79,7 +82,6 @@ exports.unassignGrievance = async (req, res, next) => {
       return res.status(404).json({ message: "Grievance not found" });
     }
 
-    // Log activity
     grievance.activityLog.push({
       message: `Officer unassigned from grievance`,
       updatedBy: req.user._id,
@@ -93,6 +95,7 @@ exports.unassignGrievance = async (req, res, next) => {
     next(error);
   }
 };
+
 
 exports.getAllAssignedGrievances = async (req, res, next) => {
   try {
