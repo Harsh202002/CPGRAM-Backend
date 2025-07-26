@@ -61,14 +61,11 @@ exports.getGrievanceById = async (req, res, next) => {
 
 exports.unassignGrievance = async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const { grievanceId } = req.body;
 
     const grievance = await Grievance.findByIdAndUpdate(
-      id,
-      {
-        $unset: { assignedTo: "", assignedDate: "" },
-        // Optional: $set: { status: "Pending Assignment" }
-      },
+      grievanceId,
+      { $unset: { assignedTo: "" } }, // <-- this removes the field
       { new: true }
     )
       .populate(
@@ -82,6 +79,7 @@ exports.unassignGrievance = async (req, res, next) => {
       return res.status(404).json({ message: "Grievance not found" });
     }
 
+    // Log activity
     grievance.activityLog.push({
       message: `Officer unassigned from grievance`,
       updatedBy: req.user._id,
@@ -95,7 +93,6 @@ exports.unassignGrievance = async (req, res, next) => {
     next(error);
   }
 };
-
 
 exports.getAllAssignedGrievances = async (req, res, next) => {
   try {
@@ -132,9 +129,9 @@ exports.getGrievanceStats = async (req, res, next) => {
   try {
     const total = await Grievance.countDocuments();
  
-    const pendingReview = await Grievance.countDocuments({ status: 'pending_review' });
-    const inProgress = await Grievance.countDocuments({ status: 'in_progress' });
-    const resolved = await Grievance.countDocuments({ status: 'resolved' });
+    const pendingReview = await Grievance.countDocuments({ status: 'Pending' });
+    const inProgress = await Grievance.countDocuments({ status: 'In Progress' });
+    const resolved = await Grievance.countDocuments({ status: 'Resolved' });
  
     res.status(200).json({
       totalGrievances: total,
@@ -154,9 +151,9 @@ exports.getRecentGrievances = async (req, res, next) => {
     const recentGrievances = await Grievance.find()
       .sort({ createdAt: -1 }) // descending by date
       .limit(5)
-      .populate('createdBy', 'name email') // optional: populate user info
-      .populate('assignedTo', 'name')       // optional: populate assigned officer
-      .populate('escalatedLeadOfficer', 'name'); // optional
+      .populate('user', 'fullName email') // optional: populate user info
+      .populate('assignedTo', 'fullName')       // optional: populate assigned officer
+      // .populate('escalatedLeadOfficer', 'fullName'); // optional
  
     res.status(200).json({
       success: true,
@@ -168,11 +165,11 @@ exports.getRecentGrievances = async (req, res, next) => {
   }
 };
 
-exports.getRecentActivities = async (req, res) => {
+exports.getRecentActivities = async (req, res, next) => {
   try {
     // Flatten all activity logs from all grievances
-    const grievances = await Grievance.find({}, "ticketId activityLog")
-      .populate("activityLog.updatedBy", "name role")
+    const grievances = await Grievance.find({}, "uniqueID activityLog")
+      .populate("activityLog.updatedBy", "fullName role")
       .sort({ "activityLog.timestamp": -1 });
  
     let activities = [];
@@ -180,7 +177,7 @@ exports.getRecentActivities = async (req, res) => {
     grievances.forEach((grievance) => {
       grievance.activityLog.forEach((log) => {
         activities.push({
-          ticketId: grievance.ticketId,
+          ticketId: grievance.uniqueID,
           status: log.status,
           message: log.message,
           comment: log.comment,
@@ -205,6 +202,7 @@ exports.getRecentActivities = async (req, res) => {
       success: false,
       message: "Internal Server Error",
     });
+    next(error)
   }
 };
 

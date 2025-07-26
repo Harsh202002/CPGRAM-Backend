@@ -46,5 +46,5 @@ router.delete(
 router.delete("/status-delete/:grievanceId", protect, deleteLastActivityLog);
 router.get("/getallgrv", protect, getAllGrievances);
 router.post("/reminder/:grievanceId", protect, sendReminder);
-router.get("/get-reminders", protect, getAllReminders);
+router.get("/get-reminders", getAllReminders);
 module.exports = router;

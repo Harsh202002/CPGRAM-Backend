@@ -17,13 +17,7 @@ router.get(
   allowRoles("lead_officer", "officer"),
   officerController.getGrievanceById
 );
-router.put(
-  "/unassign/:id",
-  protect,
-  allowRoles("lead_officer"),
-  officerController.unassignGrievance
-);
-
+router.put("/unassign", protect, officerController.unassignGrievance);
 router.get(
   "/assigned-grv",
   protect,
@@ -36,5 +30,8 @@ router.get(
   allowRoles("lead_officer", "officer"),
   officerController.getAllOfficer
 );
+router.get("/all-stats",officerController.getGrievanceStats)
+router.get("/get-recent-grievances",officerController.getRecentGrievances)
+router.get("/get-Recent-Activities",officerController.getRecentActivities)
 
 module.exports = router;
