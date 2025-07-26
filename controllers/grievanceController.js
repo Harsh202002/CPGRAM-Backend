@@ -439,13 +439,11 @@ exports.updateGrievanceStatus = async (req, res, next) => {
       });
     }
 
-    // ✅ Push status update to progressUpdates instead of activityLog
     grievance.progressUpdates.push({
       message: `${status} updated by ${userName}`,
       updatedBy: userId,
       status,
       comment,
-      updatedBy: userId,
       timestamp: new Date(),
     });
 
@@ -633,40 +631,53 @@ exports.deleteProgressUpdate = async (req, res, next) => {
       return res.status(404).json({ message: "Grievance not found" });
     }
 
-    // Remove the progress update by ID
+    // Step 1: Remove the update to delete
     grievance.progressUpdates = grievance.progressUpdates.filter(
       (p) => p._id.toString() !== progressId
     );
 
-    // 🟡 If no progress updates remain, fallback to "Pending"
-    if (grievance.progressUpdates.length === 0) {
-      grievance.status = "Pending";
-      grievance.assignedOfficer = null;
-    } else {
-      // 🟢 Otherwise, revert status to the last one in the list
-      const lastUpdate =
-        grievance.progressUpdates[grievance.progressUpdates.length - 1];
-      grievance.status = lastUpdate.status;
+    // Step 2: Sort remaining updates by timestamp DESC (newest first)
+    const sorted = grievance.progressUpdates
+      .filter((p) => p.timestamp)
+      .map((p) => {
+        // Extract status either from 'status' field or from the 'message'
+        let status = p.status;
+        if (!status && p.message) {
+          const match = p.message.match(/^(.*?) updated by/i);
+          if (match) {
+            status = match[1].trim(); // Extracted status from message
+          }
+        }
+        return { ...p, extractedStatus: status };
+      })
+      .filter((p) => p.extractedStatus) // Only keep valid ones
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-      // Only assign officer if last status is "In Progress"
-      grievance.assignedOfficer =
-        lastUpdate.status === "In Progress" ? grievance.assignedOfficer : null;
-    }
+    // Step 3: Pick latest status or fallback to "Pending"
+    const newStatus = sorted.length > 0 ? sorted[0].extractedStatus : "Pending";
+
+    grievance.status = newStatus;
+
+    // Step 4: Reset assignedOfficer only if NOT "In Progress"
+    grievance.assignedOfficer =
+      newStatus === "In Progress" ? grievance.assignedOfficer : null;
 
     await grievance.save();
 
     return res.status(200).json({
-      message: "Progress update deleted",
+      message: "Progress update deleted and status adjusted",
       grievance,
     });
   } catch (error) {
+    console.error("❌ Error deleting progress update:", error);
     next(error);
   }
 };
 
+
 exports.getGrievancesAssignedToOfficer = async (req, res) => {
   try {
-    console.log("Authenticated user:", req.user); // 👈 Add this line
+    console.log("Authenticated user:", req.user);
 
     const officerId = req.user._id;
 
