@@ -1,7 +1,8 @@
 const Grievance = require("../models/grievanceModel");
 const User = require("../models/userModel");
+const Feedback = require("../models/feedbackModel");
 const ProgressUpdate = require("../models/progressUpdateModel");
-const sendEmail = require("../utils/sendEmail");
+const sendMail = require("../utils/sendEmail");
 const generateUniqueID = require("../utils/generateUniqueID");
 const cloudinary = require("../config/cloudinary");
 const fs = require("fs");
@@ -455,6 +456,16 @@ exports.updateGrievanceStatus = async (req, res, next) => {
       grievance.assignedOfficer = userId;
     }
 
+    // ✅ Enable feedback if resolved
+    if (status === "Resolved") {
+      grievance.isFeedbackAllowed = true;
+    }
+
+    // ❌ Disable feedback if re-closed
+    if (status === "Closed") {
+      grievance.isFeedbackAllowed = false;
+    }
+
     await grievance.save();
 
     return res.status(200).json({
@@ -674,7 +685,6 @@ exports.deleteProgressUpdate = async (req, res, next) => {
   }
 };
 
-
 exports.getGrievancesAssignedToOfficer = async (req, res) => {
   try {
     console.log("Authenticated user:", req.user);
@@ -861,5 +871,93 @@ exports.getAllReminders = async (req, res, next) => {
   } catch (err) {
     console.error("Error fetching reminders:", err);
     next(err);
+  }
+};
+
+exports.submitFeedback = async (req, res, next) => {
+  try {
+    const { uniqueID } = req.params;
+    const { rating, message } = req.body;
+    const userId = req.user._id;
+
+    const grievance = await Grievance.findOne({ uniqueID }).populate("user");
+
+    if (!grievance) {
+      return res.status(404).json({ message: "Grievance not found" });
+    }
+
+    if (grievance.status !== "Resolved") {
+      return res
+        .status(400)
+        .json({ message: "Feedback allowed only on resolved grievances" });
+    }
+
+    // Check if feedback already exists for this grievance
+    const existingFeedback = await Feedback.findOne({
+      grievance: grievance._id,
+    });
+    if (existingFeedback) {
+      return res.status(400).json({ message: "Feedback already submitted" });
+    }
+
+    // Save feedback in Feedback collection
+    const feedback = await Feedback.create({
+      grievance: grievance._id,
+      satisfied: rating >= 3, // or use a separate field like `satisfied: true`
+      comments: message,
+    });
+
+    // Optionally mark in grievance that feedback was given
+    grievance.feedbackGiven = true;
+    await grievance.save();
+
+    // Send thank-you email
+    await sendMail(
+      grievance.user.email,
+      `Thanks for your feedback on grievance ${grievance.uniqueID}`,
+      `
+        <p>Dear ${grievance.user.fullName},</p>
+        <p>Thanks for submitting your feedback. Here's what you submitted:</p>
+        <ul>
+          <li><strong>Rating:</strong> ${rating} / 5</li>
+          <li><strong>Message:</strong> ${message}</li>
+        </ul>
+        <p>We appreciate your time!</p>
+      `
+    );
+
+    return res
+      .status(200)
+      .json({ message: "Feedback submitted and email sent" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getAllFeedbacksForOfficers = async (req, res, next) => {
+  try {
+    const feedbacks = await Feedback.find()
+      .populate({
+        path: "grievance",
+        populate: {
+          path: "user",
+          select: "fullName email",
+        },
+      })
+      .sort({ createdAt: -1 });
+
+    const feedbackList = feedbacks.map((feedback) => ({
+      uniqueID: feedback.grievance?.uniqueID,
+      grievanceTitle: feedback.grievance?.title,
+      user: feedback.grievance?.user?.fullName,
+      email: feedback.grievance?.user?.email,
+      rating: feedback.satisfied ? 5 : 2, // Example mapping, adjust if needed
+      message: feedback.comments,
+      submittedAt: feedback.createdAt,
+    }));
+
+    return res.status(200).json({ feedbacks: feedbackList });
+  } catch (error) {
+    next(error);
   }
 };
