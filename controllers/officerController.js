@@ -77,15 +77,8 @@ exports.unassignGrievance = async (req, res, next) => {
 
     if (!grievance) {
       return res.status(404).json({ message: "Grievance not found" });
+
     }
-
-    // Log activity
-    grievance.activityLog.push({
-      message: `Officer unassigned from grievance`,
-      updatedBy: req.user._id,
-      status: "Unassigned",
-    });
-
     await grievance.save();
 
     res.status(200).json(grievance);
