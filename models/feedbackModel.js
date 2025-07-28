@@ -6,14 +6,13 @@ const feedbackSchema = new mongoose.Schema({
         ref: 'Grievance',
         required: true
     },  
-    satisfied:{
+    satisfied: {
         type: Boolean,
         required: true  
     },
-    comments:{
-        type:string
+    comments: {
+        type: String
     }
-    },
-{timestamps:true})
+}, { timestamps: true });
 
 module.exports = mongoose.model('Feedback', feedbackSchema);

@@ -139,6 +139,12 @@ const grievanceSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    feedback: {
+      user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      rating: Number,
+      message: String,
+      submittedAt: Date,
+    },
     assignedDate: { type: Date },
     isClosed: {
       type: Boolean,

@@ -13,6 +13,8 @@ const {
   getAllGrievances,
   sendReminder,
   getAllReminders,
+  submitFeedback,
+  getAllFeedbacksForOfficers,
 } = require("../controllers/grievanceController");
 const { protect } = require("../middlewares/authMiddleware");
 const { upload } = require("../middlewares/uploadMiddleware");
@@ -47,4 +49,8 @@ router.delete("/status-delete/:grievanceId", protect, deleteLastActivityLog);
 router.get("/getallgrv", protect, getAllGrievances);
 router.post("/reminder/:grievanceId", protect, sendReminder);
 router.get("/get-reminders", protect, getAllReminders);
+
+router.post("/submit/:uniqueID", protect, submitFeedback);
+router.get("/feedbacks", protect, getAllFeedbacksForOfficers);
+
 module.exports = router;
