@@ -439,7 +439,7 @@ exports.updateGrievanceStatus = async (req, res, next) => {
       });
     }
 
-    grievance.progressUpdates.push({
+    grievance.activityLog.push({
       message: `${status} updated by ${userName}`,
       updatedBy: userId,
       status,
