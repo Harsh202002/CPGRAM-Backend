@@ -2,6 +2,9 @@ const Grievance = require("../models/grievanceModel");
 const User = require("../models/userModel");
 const ProgressUpdate = require("../models/progressUpdateModel");
 const sendEmail = require("../utils/sendEmail");
+const grievanceConfirmationTemplate = require("../utils/grievanceConfirmation");
+const grievanceStatusUpdateTemplate = require("../utils/grievanceStatusUpdate");
+const reminderNotificationTemplate = require("../utils/reminderNotification");
 const generateUniqueID = require("../utils/generateUniqueID");
 const cloudinary = require("../config/cloudinary");
 const fs = require("fs");
@@ -59,6 +62,8 @@ exports.createGrievance = async (req, res, next) => {
       }
     }
 
+    const uniqueID = generateUniqueID();
+
     const grievance = await Grievance.create({
       user: req.user._id,
       fullName,
@@ -81,8 +86,15 @@ exports.createGrievance = async (req, res, next) => {
       dateOfIncident,
       category,
       attachments,
-      uniqueID: generateUniqueID(),
+      uniqueID,
     });
+
+    const emailHTML = grievanceConfirmationTemplate(fullName, uniqueID);
+    await sendEmail(
+      email,
+      "Grievance Submitted successfully - ID"+ uniqueID,
+      emailHTML,
+    );
 
     res.status(201).json({
       message: "Grievance created successfully",
@@ -417,8 +429,11 @@ exports.updateGrievanceStatus = async (req, res, next) => {
     const userId = req.user._id;
     const userName = req.user.fullName;
 
-    const grievance = await Grievance.findById(grievanceId).populate(
+    const grievance = await Grievance.findById(grievanceId)
+    .populate(
       "progressUpdates.updatedBy"
+    ).populate(
+      "user"
     );
 
     if (!grievance) {
@@ -456,6 +471,19 @@ exports.updateGrievanceStatus = async (req, res, next) => {
     }
 
     await grievance.save();
+
+    const userEmail = grievance.user.email;
+    const userFullName = grievance.user.fullName;
+    const grievanceUniqueID = grievance.uniqueID;
+
+    const emailHTML = grievanceStatusUpdateTemplate(userFullName,grievanceUniqueID,status,comment);
+    console.log("sending email to",userEmail);
+    
+    await sendEmail(
+      userEmail,
+      `Update:Your Grievance Status is now "${status}"`,
+      emailHTML,
+    )
 
     return res.status(200).json({
       message: "Status updated successfully",
@@ -751,43 +779,66 @@ exports.getAllGrievances = async (req, res, next) => {
 exports.sendReminder = async (req, res, next) => {
   try {
     const { grievanceId } = req.params;
-    const userId = req.user._id;
-
-    const grievance = await Grievance.findById(grievanceId);
-
+    const senderId = req.user._id;
+ 
+    const grievance = await Grievance.findById(grievanceId).populate("user");
+ 
     if (!grievance) {
       return res.status(404).json({ message: "Grievance not found" });
     }
-
-    // Push reminder into grievance
+ 
     grievance.reminders.push({
-      sentBy: userId,
+      sentBy: senderId,
       timestamp: new Date(),
     });
-
+ 
     await grievance.save();
-
-    // Send notification (in real system, you would send email or push notification)
+ 
     let recipient;
-
+ 
     if (grievance.assignedTo) {
       recipient = await User.findById(grievance.assignedTo);
     } else {
-      // Find first lead officer
       recipient = await User.findOne({ role: "lead_officer" });
     }
-
+ 
     if (!recipient) {
       return res
         .status(404)
         .json({ message: "No officer or lead officer found to send reminder" });
     }
-
+ 
+    // ✅ Send email to officer
+    const officerEmailHTML = reminderNotificationTemplate(
+      recipient.fullName,
+      grievance.uniqueID,
+      grievance.user.fullName
+    );
+ 
+    await sendEmail(
+      recipient.email,
+      `Reminder: Action Required on Grievance ${grievance.uniqueID}`,
+      officerEmailHTML,
+    );
+ 
+    // ✅ Send confirmation email to user
+    const userEmailHTML = reminderNotificationTemplate(
+      grievance.user.fullName,
+      grievance.uniqueID,
+      "You (Reminder Sent)"
+    );
+ 
+    await sendEmail(
+grievance.user.email,
+      `Reminder Sent on Grievance ${grievance.uniqueID}`,
+       userEmailHTML,
+    );
+ 
     res.status(200).json({
       message: `Reminder sent successfully to ${recipient.fullName}`,
       recipient: {
         name: recipient.fullName,
-        email: recipient.email,
+email: recipient.email,
         role: recipient.role,
       },
     });
