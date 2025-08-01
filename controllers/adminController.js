@@ -1,4 +1,5 @@
 const User = require('../models/userModel');
+const Grievance = require('../models/grievanceModel');
 const jwt = require('jsonwebtoken');
 const generateToken = (id) =>
     jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -7,7 +8,8 @@ const generateToken = (id) =>
 
 exports.createOfficer = async (req, res, next) => {
     try {
-        const { fullName, email, password, department } = req.body;
+        const { fullName, email, 
+phoneNumber, gender, dob, password, department } = req.body;
         const existing = await User.findOne({
             email: email,
         });
@@ -20,6 +22,10 @@ exports.createOfficer = async (req, res, next) => {
         const user = await User.create({
             fullName,
             email,
+            
+            phoneNumber,
+            gender,
+            dob,
             password,
             department,
             role: "officer",
@@ -57,3 +63,34 @@ exports.promoteOfficer = async (req, res, next) => {
         next(error);
     }
 }
+
+
+exports.getAllUsersWithGrievances = async (req, res) => {
+  try {
+    const users = await User.find({}, 'fullName email phoneNumber'); // Only fetch necessary fields
+ 
+    const usersWithGrievances = await Promise.all(
+      users.map(async (user) => {
+        const grievances = await Grievance.find({ user: user._id })
+          .populate('assignedTo', 'fullName email phoneNumber');
+ 
+        return {
+          ...user.toObject(),
+          grievances,
+        };
+      })
+    );
+ 
+    res.status(200).json({
+      success: true,
+      data: usersWithGrievances,
+    });
+ 
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+    });
+  }
+};

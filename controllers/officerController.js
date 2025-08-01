@@ -1,11 +1,12 @@
 const Grievance = require("../models/grievanceModel");
 const User = require("../models/userModel");
+const sendEmail = require("../utils/sendEmail");
+const assignmentNotificationTemplate = require("../utils/assignmentNotification");
 
 exports.assignGrievance = async (req, res, next) => {
   try {
     const { grievanceId, officerId } = req.body;
 
-    // Find the grievance and assign it to the officer
     const grievance = await Grievance.findByIdAndUpdate(
       grievanceId,
       { assignedTo: officerId, assignedDate: new Date() },
@@ -15,21 +16,51 @@ exports.assignGrievance = async (req, res, next) => {
         "user",
         "-username -password -role -department -address -city -state -district -pincode"
       )
-      .populate("assignedTo", "name email role") // 👈 add 'email' & 'name'
-      .populate("activityLog.updatedBy", "name role");
+      .populate("assignedTo", "fullName email role")
+      .populate("activityLog.updatedBy", "fullName role");
 
     if (!grievance) {
       return res.status(404).json({ message: "Grievance not found" });
     }
 
-    // Log the activity
+    // Log activity
     grievance.activityLog.push({
-      message: `Grievance assigned to officer ${officerId}`,
+      message: `Grievance assigned to officer ${grievance.assignedTo.fullName}`,
       updatedBy: req.user._id,
       status: "Assigned",
     });
 
     await grievance.save();
+
+    // ✅ Officer email (assigned person)
+    const officerEmailHTML = assignmentNotificationTemplate(
+      grievance.assignedTo.fullName,
+      grievance.uniqueID,
+      req.user.fullName,
+      grievance.assignedTo.fullName,
+      true // isRecipientOfficer
+    );
+
+    await sendEmail(
+      grievance.assignedTo.email,
+      `New Grievance Assigned: ${grievance.uniqueID}`,
+      officerEmailHTML
+    );
+
+    // ✅ Lead officer confirmation email
+    const leadOfficerEmailHTML = assignmentNotificationTemplate(
+      req.user.fullName,
+      grievance.uniqueID,
+      req.user.fullName,
+      grievance.assignedTo.fullName,
+      false // isRecipientOfficer
+    );
+
+    await sendEmail(
+      req.user.email,
+      `Grievance Assigned Successfully to ${grievance.assignedTo.fullName}`,
+      leadOfficerEmailHTML
+    );
 
     res.status(200).json(grievance);
   } catch (error) {
@@ -77,7 +108,6 @@ exports.unassignGrievance = async (req, res, next) => {
 
     if (!grievance) {
       return res.status(404).json({ message: "Grievance not found" });
-
     }
     await grievance.save();
 
@@ -108,52 +138,52 @@ exports.getAllOfficer = async (req, res, next) => {
       role: "officer",
     }).select("-password");
 
-        res.status(200).json({
-            message:'officers fetched successfully',
-            officers
-        })
-    } catch (error) {
-        next(error)
-    }
-}
-
+    res.status(200).json({
+      message: "officers fetched successfully",
+      officers,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 exports.getGrievanceStats = async (req, res, next) => {
   try {
     const total = await Grievance.countDocuments();
- 
-    const pendingReview = await Grievance.countDocuments({ status: 'Pending' });
-    const inProgress = await Grievance.countDocuments({ status: 'In Progress' });
-    const resolved = await Grievance.countDocuments({ status: 'Resolved' });
- 
+
+    const pendingReview = await Grievance.countDocuments({ status: "Pending" });
+    const inProgress = await Grievance.countDocuments({
+      status: "In Progress",
+    });
+    const resolved = await Grievance.countDocuments({ status: "Resolved" });
+
     res.status(200).json({
       totalGrievances: total,
       pendingReview,
       inProgress,
-      resolved
+      resolved,
     });
   } catch (err) {
-    console.error('Error getting grievance stats:', err);
+    console.error("Error getting grievance stats:", err);
     next(err);
   }
 };
-
 
 exports.getRecentGrievances = async (req, res, next) => {
   try {
     const recentGrievances = await Grievance.find()
       .sort({ createdAt: -1 }) // descending by date
       .limit(5)
-      .populate('user', 'fullName email') // optional: populate user info
-      .populate('assignedTo', 'fullName')       // optional: populate assigned officer
-      // .populate('escalatedLeadOfficer', 'fullName'); // optional
- 
+      .populate("user", "fullName email") // optional: populate user info
+      .populate("assignedTo", "fullName"); // optional: populate assigned officer
+    // .populate('escalatedLeadOfficer', 'fullName'); // optional
+
     res.status(200).json({
       success: true,
-      grievances: recentGrievances
+      grievances: recentGrievances,
     });
   } catch (err) {
-    console.error('Error fetching recent grievances:', err);
+    console.error("Error fetching recent grievances:", err);
     next(err);
   }
 };
@@ -164,9 +194,9 @@ exports.getRecentActivities = async (req, res, next) => {
     const grievances = await Grievance.find({}, "uniqueID activityLog")
       .populate("activityLog.updatedBy", "fullName role")
       .sort({ "activityLog.timestamp": -1 });
- 
+
     let activities = [];
- 
+
     grievances.forEach((grievance) => {
       grievance.activityLog.forEach((log) => {
         activities.push({
@@ -180,11 +210,11 @@ exports.getRecentActivities = async (req, res, next) => {
         });
       });
     });
- 
+
     // Sort by timestamp descending and limit to 5 recent activities
     activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     const recentActivities = activities.slice(0, 5);
- 
+
     res.status(200).json({
       success: true,
       data: recentActivities,
@@ -195,10 +225,6 @@ exports.getRecentActivities = async (req, res, next) => {
       success: false,
       message: "Internal Server Error",
     });
-    next(error)
+    next(error);
   }
 };
-
-
-
-
