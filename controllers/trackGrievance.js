@@ -41,7 +41,7 @@ exports.trackGrievance = async (req, res, next) => {
         allowReminder: canSendRemainder,
         allowFeedback:grievance.status === 'Resolved' && !grievance.feedbackGiven
 
-
+        
         });
 
    } catch (error) {

@@ -67,7 +67,7 @@ exports.promoteOfficer = async (req, res, next) => {
 
 exports.getAllUsersWithGrievances = async (req, res) => {
   try {
-    const users = await User.find({}, 'fullName email phoneNumber'); // Only fetch necessary fields
+    const users = await User.find({role:'user'}, 'fullName email phoneNumber'); // Only fetch necessary fields
  
     const usersWithGrievances = await Promise.all(
       users.map(async (user) => {
