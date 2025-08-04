@@ -64,6 +64,27 @@ exports.promoteOfficer = async (req, res, next) => {
     }
 }
 
+exports.demoteOfficer = async (req, res, next) => {
+    try {
+        const { officerId } = req.params;
+        const officer = await User.findById(officerId);
+        if (!officer) {
+            return res.status(404).json({
+                success: false,
+                message: "Officer not found",
+            });
+        }
+        officer.role = "officer";
+        await officer.save();
+        res.status(200).json({
+            success: true,
+            message: "Officer demoted to officer",
+            officer,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
 
 exports.getAllUsersWithGrievances = async (req, res) => {
   try {
@@ -93,4 +114,85 @@ exports.getAllUsersWithGrievances = async (req, res) => {
       message: 'Server error',
     });
   }
+};
+
+
+exports.getAllOfficers = async (req, res) => {
+    try {
+        const officers = await User.find({ role: 'officer' }, 'fullName email phoneNumber');
+        res.status(200).json({
+            success: true,
+            data: officers,
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+        });
+    }
+};
+
+exports.getAllLeadOfficers = async (req, res) => {
+    try {
+        const leadOfficers = await User.find({ role: 'lead_officer' }, 'fullName email phoneNumber');
+        res.status(200).json({
+            success: true,
+            data: leadOfficers,
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+        });
+    }
+};
+
+exports.deleteOfficer = async (req, res) => {
+    try {
+        const { officerId } = req.params;
+        const officer = await User.findById(officerId);
+        if (!officer) {
+            return res.status(404).json({
+                success: false,
+                message: "Officer not found",
+            });
+        }
+        await officer.remove();
+        res.status(200).json({
+            success: true,
+            message: "Officer deleted successfully",
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+        });
+    }
+};
+
+exports.deleteLeadOfficer = async (req, res) => {
+    try {
+        const { officerId } = req.params;
+        const officer = await User.findById(officerId);
+        if (!officer) {
+            return res.status(404).json({
+                success: false,
+                message: "Lead Officer not found",
+            });
+        }
+        await officer.remove();
+        res.status(200).json({
+            success: true,
+            message: "Lead Officer deleted successfully",
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+        });
+    }
 };
