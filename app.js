@@ -11,7 +11,7 @@ app.use(helmet());
 
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || "*", // Allow all origins by default
+    origin: process.env.FRONTEND_URL || "*", // Allow all origins by default
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"], //
     credentials: true,
   })
