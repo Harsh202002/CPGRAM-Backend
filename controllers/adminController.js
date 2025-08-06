@@ -152,14 +152,13 @@ exports.getAllLeadOfficers = async (req, res) => {
 exports.deleteOfficer = async (req, res) => {
     try {
         const { officerId } = req.params;
-        const officer = await User.findById(officerId);
+        const officer = await User.findByIdAndDelete(officerId);
         if (!officer) {
             return res.status(404).json({
                 success: false,
                 message: "Officer not found",
             });
         }
-        await officer.remove();
         res.status(200).json({
             success: true,
             message: "Officer deleted successfully",
@@ -195,4 +194,55 @@ exports.deleteLeadOfficer = async (req, res) => {
             message: 'Server error',
         });
     }
+};
+
+exports.getDashboardCounts = async (req, res) => {
+  try {
+    // 1. Grievance counts grouped by status
+    const grievanceStatusCounts = await Grievance.aggregate([
+      {
+        $group: {
+          _id: "$status",
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+ 
+    // 2. Officer & Lead Officer counts
+    const [officerCount, leadOfficerCount] = await Promise.all([
+      User.countDocuments({ role: "officer" }),
+      User.countDocuments({ role: "lead_officer" }),
+    ]);
+ 
+    // Initialize result object
+    const result = {
+      totalGrievances: 0,
+      pending: 0,
+      inProgress: 0,
+      resolved: 0,
+      closed: 0,
+      officerCount,
+      leadOfficerCount,
+    };
+ 
+    // Map grievance status counts
+    grievanceStatusCounts.forEach((item) => {
+      const status = item._id?.toLowerCase();
+ 
+      if (status === 'pending') result.pending = item.count;
+      else if (status === 'in progress') result.inProgress = item.count;
+      else if (status === 'resolved') result.resolved = item.count;
+      else if (status === 'closed') result.closed = item.count;
+ 
+      result.totalGrievances += item.count;
+    });
+ 
+    res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    console.error("Dashboard count error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch dashboard counts",
+    });
+  }
 };
