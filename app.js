@@ -14,6 +14,7 @@ app.use(
     origin: "https://cpgrams-frontend.vercel.app", // Allow all origins by default
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"], //
     credentials: true,
+     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
