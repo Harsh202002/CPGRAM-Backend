@@ -166,7 +166,6 @@ exports.getAllLeadOfficers = async (req, res) => {
 };
 
 exports.deleteOfficer = async (req, res) => {
-<<<<<<< HEAD
     try {
         const { officerId } = req.params;
         const officer = await User.findByIdAndDelete(officerId);
@@ -186,40 +185,9 @@ exports.deleteOfficer = async (req, res) => {
             success: false,
             message: 'Server error',
         });
-=======
-  try {
-    const { officerId } = req.params;
-    console.log("Officer ID to delete:", officerId);
-
-    const officer = await User.findById(officerId);
-    if (!officer) {
-      console.log("Officer not found");
-      return res.status(404).json({
-        success: false,
-        message: "Officer not found",
-      });
->>>>>>> 8df02c22e812e9da2b146625a7bb100acd60405e
     }
 
-    console.log("Officer found:", officer.name, officer.email);
-
-    // FIX: Use deleteOne
-    await User.deleteOne({ _id: officerId });
-
-    console.log("Officer deleted successfully");
-
-    res.status(200).json({
-      success: true,
-      message: "Officer deleted successfully",
-    });
-  } catch (error) {
-    console.error("Delete officer error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
-  }
-};
+}
 
 
 exports.deleteLeadOfficer = async (req, res) => {
