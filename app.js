@@ -9,11 +9,26 @@ require("dotenv").config();
 const app = express();
 app.use(helmet());
 
+
+
+const allowedOrigins = [
+"https://cpgrams-frontend.vercel.app",
+"http://localhost:3000", // Optional: for local testing
+];
+ 
 app.use(
   cors({
-    origin: "*", // Allow all origins by default
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"], //
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true); // Allow non-browser tools like Postman
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      } else {
+        return callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
