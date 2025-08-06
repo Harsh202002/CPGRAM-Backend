@@ -11,7 +11,7 @@ app.use(helmet());
 
 app.use(
   cors({
-    origin: "*", // Allow all origins by default
+    origin: "https://cpgrams-frontend.vercel.app", // Allow all origins by default
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"], //
     credentials: true,
   })
