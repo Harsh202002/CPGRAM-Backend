@@ -1,7 +1,7 @@
 const express = require('express');
 const { protect } = require('../middlewares/authMiddleware');
 const { allowRoles } = require('../middlewares/roleMiddleware');
-const {createOfficer, promoteOfficer,getAllUsersWithGrievances,demoteOfficer,getAllOfficers,getAllLeadOfficers,deleteOfficer} = require('../controllers/adminController')
+const {createOfficer, promoteOfficer,getAllUsersWithGrievances,demoteOfficer,getAllOfficers,getAllLeadOfficers,deleteOfficer,getDashboardCounts} = require('../controllers/adminController')
 
 const router = express.Router();
 
@@ -11,7 +11,8 @@ router.get('/getAllUsersWithGrievances',getAllUsersWithGrievances);
 router.put('/demote/:officerId',demoteOfficer);
 router.get('/getAllOfficers',getAllOfficers);
 router.get('/getAllLeadOfficers',getAllLeadOfficers);
-router.delete('/delete/:officerId',deleteOfficer)
+router.delete('/delete/:officerId',deleteOfficer);
+router.get('/getDashboardCounts',getDashboardCounts);
 
 
 

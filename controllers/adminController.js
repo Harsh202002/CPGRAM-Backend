@@ -8,29 +8,45 @@ const generateToken = (id) =>
 
 exports.createOfficer = async (req, res, next) => {
     try {
-        const { fullName, email, 
-phoneNumber, gender, dob, password, department } = req.body;
-        const existing = await User.findOne({
-            email: email,
-        });
-        if (existing) {
+        const { fullName, email, phoneNumber, gender, dob, password, department } = req.body;
+
+        console.log("Create Officer Request:", req.body);
+
+        // Normalize email for consistent checking
+        const normalizedEmail = email.trim().toLowerCase();
+
+        // Check if email already exists
+        const existingEmail = await User.findOne({ email: normalizedEmail });
+        if (existingEmail) {
             return res.status(400).json({
                 success: false,
-                message: "Officer already exists",
+                message: "Officer with this email already exists",
             });
         }
+
+        // Check if phone number already exists
+        const existingPhone = await User.findOne({ phoneNumber: phoneNumber.trim() });
+        if (existingPhone) {
+            return res.status(400).json({
+                success: false,
+                message: "Officer with this phone number already exists",
+            });
+        }
+
+        // Create the officer
         const user = await User.create({
-            fullName,
-            email,
-            
-            phoneNumber,
+            fullName: fullName.trim(),
+            email: normalizedEmail,
+            phoneNumber: phoneNumber.trim(),
             gender,
             dob,
             password,
             department,
             role: "officer",
         });
+
         const token = generateToken(user._id);
+
         res.status(201).json({
             success: true,
             message: "Officer created successfully",
@@ -38,10 +54,10 @@ phoneNumber, gender, dob, password, department } = req.body;
             token,
         });
     } catch (error) {
-       next(error);
+        console.error("Error in createOfficer:", error);
+        next(error);
     }
 };
-
 exports.promoteOfficer = async (req, res, next) => {
     try {
         const { officerId } = req.params;
@@ -119,7 +135,7 @@ exports.getAllUsersWithGrievances = async (req, res) => {
 
 exports.getAllOfficers = async (req, res) => {
     try {
-        const officers = await User.find({ role: 'officer' }, 'fullName email phoneNumber');
+        const officers = await User.find({ role: 'officer' }, 'fullName email phoneNumber gender department');
         res.status(200).json({
             success: true,
             data: officers,
@@ -150,6 +166,7 @@ exports.getAllLeadOfficers = async (req, res) => {
 };
 
 exports.deleteOfficer = async (req, res) => {
+<<<<<<< HEAD
     try {
         const { officerId } = req.params;
         const officer = await User.findByIdAndDelete(officerId);
@@ -169,8 +186,41 @@ exports.deleteOfficer = async (req, res) => {
             success: false,
             message: 'Server error',
         });
+=======
+  try {
+    const { officerId } = req.params;
+    console.log("Officer ID to delete:", officerId);
+
+    const officer = await User.findById(officerId);
+    if (!officer) {
+      console.log("Officer not found");
+      return res.status(404).json({
+        success: false,
+        message: "Officer not found",
+      });
+>>>>>>> 8df02c22e812e9da2b146625a7bb100acd60405e
     }
+
+    console.log("Officer found:", officer.name, officer.email);
+
+    // FIX: Use deleteOne
+    await User.deleteOne({ _id: officerId });
+
+    console.log("Officer deleted successfully");
+
+    res.status(200).json({
+      success: true,
+      message: "Officer deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete officer error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
 };
+
 
 exports.deleteLeadOfficer = async (req, res) => {
     try {
