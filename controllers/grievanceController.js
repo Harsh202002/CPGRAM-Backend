@@ -14,17 +14,8 @@ const path = require("path");
 exports.createGrievance = async (req, res, next) => {
   try {
     const {
-      fullName,
-      email,
-      gender,
-      phoneNumber,
       dateOfBirth,
-      addressLine1,
       addressLine2,
-      city,
-      state,
-      district,
-      pincode,
       ministryName,
       grievanceDescription,
       departmentName,
@@ -66,18 +57,9 @@ exports.createGrievance = async (req, res, next) => {
     const uniqueID = generateUniqueID();
 
     const grievance = await Grievance.create({
-      user: req.user._id,
-      fullName,
-      email,
-      gender,
-      phoneNumber,
+      user: req.user,
       dateOfBirth,
-      addressLine1,
       addressLine2,
-      city,
-      state,
-      district,
-      pincode,
       ministryName,
       grievanceDescription,
       departmentName,
@@ -90,9 +72,9 @@ exports.createGrievance = async (req, res, next) => {
       uniqueID,
     });
 
-    const emailHTML = grievanceConfirmationTemplate(fullName, uniqueID);
+    const emailHTML = grievanceConfirmationTemplate(req.user.fullName, uniqueID);
     await sendEmail(
-      email,
+      req.user.email,
       "Grievance Submitted successfully - ID"+ uniqueID,
       emailHTML,
     );
